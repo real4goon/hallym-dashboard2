@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>상급종합병원 비급여 단가 실시간 조회기</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; margin: 20px; background-color: #f4f7f9; }
+        .container { max-width: 1300px; margin: auto; background: white; padding: 20px 30px 40px 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header-title { text-align: center; color: #004b87; font-weight: bold; border-bottom: 3px solid #004b87; padding-bottom: 15px; margin-bottom: 20px; font-size: 24px;}
+        
+        .api-section { background: #e8f4fd; padding: 15px; border-radius: 5px; border: 1px solid #cce5ff; margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+        select { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-width: 300px; }
+        input[type="text"] { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; flex: 1; outline: none; }
+        input[type="text"]:focus { border-color: #004b87; }
+        
+        button { padding: 10px 20px; background: #004b87; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; white-space: nowrap; transition: 0.2s; }
+        button:hover { background: #003366; }
+        
+        /* 엑셀 버튼 전용 스타일 */
+        .btn-excel { background-color: #10b981; }
+        .btn-excel:hover { background-color: #059669; }
+        
+        .main-layout { display: flex; gap: 20px; }
+        .tree-view { width: 300px; border: 1px solid #ddd; background: #fafafa; padding: 15px; overflow-y: auto; max-height: 600px; }
+        
+        /* 아코디언 트리 UI */
+        .category-item { font-weight: bold; cursor: pointer; margin-bottom: 10px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .category-item:hover { color: #004b87; }
+        .sub-category { padding-left: 15px; font-weight: normal; font-size: 12px; color: #555; display: none; margin-top: 5px; }
+        .sub-item { padding: 5px 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px dashed #eee; }
+        .sub-item:hover { color: #d9534f; font-weight: bold; }
+        
+        .result-view { flex: 1; overflow-y: auto; max-height: 600px; border: 1px solid #ddd; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid #e0e0e0; padding: 12px 10px; text-align: center; }
+        th { background: #f1f5f9; position: sticky; top: 0; color: #1e293b; z-index: 10; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        tr:hover { background-color: #f8fafc; }
+        .price { color: #d9534f; font-weight: bold; font-size: 15px; }
+        .date-col { color: #64748b; font-size: 12px; }
+        
+        /* 하단 푸터 영역 */
+        .footer { text-align: center; margin-top: 40px; padding-top: 25px; border-top: 2px dashed #e2e8f0; }
+        .copyright { font-weight: bold; color: #64748b; margin-bottom: 15px; font-size: 13px; }
+        .dashboard-link { display: inline-block; padding: 10px 20px; background-color: #f8fafc; border-radius: 5px; color: #0f172a; text-decoration: none; font-weight: bold; border: 1px solid #cbd5e1; transition: all 0.2s; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .dashboard-link:hover { background-color: #004b87; color: white; border-color: #004b87; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-title">🏥 상급종합병원 비급여 실시간 조회기</div>
+    
+    <div class="api-section">
+        <strong>📍 대상 병원 선택:</strong>
+        <select id="hospitalSelect"></select>
+        <button onclick="fetchApiData()">데이터 실시간 불러오기</button>
+        <span id="apiStatus" style="font-weight:bold; color:#666; margin-left:10px;">대기 중...</span>
+    </div>
+
+    <div class="api-section" style="background: #f8fafc;">
+        <input type="text" id="searchInput" placeholder="결과 내 검색 (명칭, EDI 코드 부분 일치)">
+        <button onclick="searchData()">통합 검색</button>
+        <button class="btn-excel" onclick="exportToExcel()">📊 엑셀 다운로드</button>
+    </div>
+
+    <div class="main-layout">
+        <div class="tree-view" id="treeView">
+            <div style="font-weight:bold; border-bottom:2px solid #cbd5e1; margin-bottom:10px; padding-bottom:8px; color:#0f172a;">🗂️ 가상 카테고리 트리</div>
+            <div id="treeContent" style="color:#94a3b8; font-size:13px; margin-top: 10px;">상단에서 데이터를 불러와주세요.</div>
+        </div>
+        <div class="result-view">
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">코드(EDI)</th>
+                        <th style="width: 45%;">비급여 항목명 (npayKorNm)</th>
+                        <th style="width: 25%;">제출 비용(단가)</th>
+                        <th style="width: 15%;">최종 등록일자</th>
+                    </tr>
+                </thead>
+                <tbody id="resultBody">
+                    <tr><td colspan="4" style="text-align:center; padding: 60px; color:#94a3b8;">선택한 병원의 실시간 데이터가 여기에 표시됩니다.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="copyright">Copyright © 2026. 한림대학교성심병원 원무팀 김영선 대리. All rights reserved.</div>
+        <a href="https://real4goon.github.io/hallym-dashboard/" target="_blank" class="dashboard-link">
+            📊 다수 병원 전체 비교 프로그램 대시보드 바로가기 🔗
+        </a>
+    </div>
+</div>
+
+<script>
+    const API_KEY = "0412d9d9b5df0a9504c7e3712efa9c123d1639149c78fac71fd43121f7227b23";
+    let apiData = [];
+    let currentViewData = []; // ★ 엑셀 추출을 위해 현재 화면에 띄워진 데이터를 기억하는 변수
+
+    const hospList = [
+        "가천대학교길병원", "가톨릭대학교서울성모병원", "가톨릭대학교인천성모병원", 
+        "강북삼성병원", "건국대학교병원", "건양대학교병원", "경북대학교병원", 
+        "경상국립대학교병원", "계명대학교동산병원", "고려대학교의과대학부속구로병원", 
+        "고려대학교의과대학부속병원(안암)", "고려대학교의과대학부속안산병원", "고신대학교복음병원", 
+        "단국대학교의과대학부속병원", "대구가톨릭대학교병원", "동아대학교병원", 
+        "부산대학교병원", "분당서울대학교병원", "삼성서울병원", "서울대학교병원", 
+        "서울아산병원", "성균관대학교삼성창원병원", "순천향대학교부속부천병원", 
+        "순천향대학교부속천안병원", "아주대학교병원", "양산부산대학교병원", 
+        "연세대학교의과대학강남세브란스병원", "연세대학교원주세브란스기독병원", 
+        "연세대학교의과대학세브란스병원", "영남대학교병원", "원광대학교병원", 
+        "울산대학교병원", "이화여자대학교의과대학부속목동병원", "인제대학교부산백병원", 
+        "인제대학교해운대백병원", "인하대학교의과대학부속병원", "전남대학교병원", 
+        "전북대학교병원", "조선대학교병원", "중앙대학교병원", "충남대학교병원", 
+        "충북대학교병원", "칠곡경북대학교병원", "한림대학교성심병원", "한양대학교병원", 
+        "화순전남대학교병원", "강릉아산병원"
+    ].sort();
+
+    function initHospitalList() {
+        const select = document.getElementById('hospitalSelect');
+        if (!select) return;
+        
+        let optionsHtml = `<option value="한림대학교성심병원" selected>한림대학교성심병원 (기본)</option>`;
+        hospList.forEach(name => {
+            if(name !== "한림대학교성심병원") {
+                optionsHtml += `<option value="${name}">${name}</option>`;
+            }
+        });
+        select.innerHTML = optionsHtml;
+    }
+    
+    initHospitalList();
+
+    async function fetchApiData() {
+        const hospName = document.getElementById('hospitalSelect').value;
+        const statusEl = document.getElementById('apiStatus');
+        statusEl.innerText = "데이터 통신 및 정제 중...";
+        statusEl.style.color = "blue";
+        
+        const targetUrl = `http://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemHospDtlList?serviceKey=${API_KEY}&yadmNm=${encodeURIComponent(hospName)}&numOfRows=5000&_type=json`;
+
+        try {
+            let response;
+            try {
+                response = await fetch(targetUrl);
+                if(!response.ok) throw new Error();
+            } catch(e) {
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+                response = await fetch(proxyUrl);
+            }
+
+            const json = await response.json();
+            
+            if(json.response && json.response.body && json.response.body.items) {
+                let rawItems = json.response.body.items.item;
+                if(!Array.isArray(rawItems)) rawItems = [rawItems];
+
+                apiData = rawItems.map(d => {
+                    let rawDate = d.adtFrDd || '-';
+                    let formattedDate = rawDate.length === 8 ? `${rawDate.slice(0,4)}-${rawDate.slice(4,6)}-${rawDate.slice(6,8)}` : rawDate;
+                    
+                    return {
+                        code: d.npayCd || d.cd || d.invtNo || '-',
+                        name: d.npayKorNm || d.npayNm || d.npayCdNm || '명칭 없음',
+                        price: d.curAmt || d.prcMin || d.prcMax || '0',
+                        date: formattedDate
+                    };
+                });
+
+                statusEl.innerText = `성공! 총 ${apiData.length.toLocaleString()}건 로드 완료.`;
+                statusEl.style.color = "green";
+                
+                buildVirtualTree();
+                renderTable(apiData); // 초기에는 전체 데이터 렌더링
+            } else {
+                statusEl.innerText = "데이터 0건 (결과 없음)";
+                statusEl.style.color = "red";
+                renderTable([]);
+            }
+        } catch (error) {
+            console.error(error);
+            statusEl.innerText = "통신 실패! (보안망 차단 우려)";
+            statusEl.style.color = "red";
+        }
+    }
+
+    function buildVirtualTree() {
+        const tree = document.getElementById('treeContent');
+        tree.innerHTML = '';
+        
+        const categories = {
+            "초음파 검사료": [], "MRI (자기공명영상)": [], "로봇수술/처치": [], 
+            "도수/체외충격파": [], "제증명/진단서": [], "기타/미분류 항목": []
+        };
+
+        apiData.forEach(d => {
+            const name = d.name.toLowerCase();
+            if(name.includes('초음파')) categories["초음파 검사료"].push(d);
+            else if(name.includes('mri') || name.includes('자기공명')) categories["MRI (자기공명영상)"].push(d);
+            else if(name.includes('로봇')) categories["로봇수술/처치"].push(d);
+            else if(name.includes('도수') || name.includes('체외충격')) categories["도수/체외충격파"].push(d);
+            else if(name.includes('증명') || name.includes('진단서') || name.includes('확인서')) categories["제증명/진단서"].push(d);
+            else categories["기타/미분류 항목"].push(d);
+        });
+
+        for(let key in categories) {
+            const count = categories[key].length;
+            if(count === 0) continue;
+
+            const div = document.createElement('div');
+            div.className = 'category-item';
+            div.innerHTML = `📁 ${key} <span style="color:#d9534f; font-size:12px;">(${count}건)</span>`;
+            
+            const subDiv = document.createElement('div');
+            subDiv.className = 'sub-category';
+            
+            const displayLimit = Math.min(count, 40);
+            for(let i=0; i<displayLimit; i++) {
+                const item = categories[key][i];
+                const sItem = document.createElement('div');
+                sItem.className = 'sub-item';
+                sItem.innerHTML = `└ ${item.name}`;
+                sItem.onclick = (e) => {
+                    e.stopPropagation(); 
+                    renderTable([item]); // 세부 항목 클릭 시 표에 반영
+                };
+                subDiv.appendChild(sItem);
+            }
+            if(count > 40) {
+                const moreItem = document.createElement('div');
+                moreItem.className = 'sub-item';
+                moreItem.style.color = '#888';
+                moreItem.style.borderBottom = 'none';
+                moreItem.innerHTML = `└ ...외 ${count - 40}건 (폴더 클릭 시 전체표시)`;
+                subDiv.appendChild(moreItem);
+            }
+
+            div.onclick = () => {
+                subDiv.style.display = subDiv.style.display === 'none' || subDiv.style.display === '' ? 'block' : 'none';
+                renderTable(categories[key]); // 폴더 클릭 시 해당 카테고리 전체 표에 반영
+            };
+
+            div.appendChild(subDiv);
+            tree.appendChild(div);
+        }
+    }
+
+    function searchData() {
+        const kw = document.getElementById('searchInput').value.toLowerCase().trim();
+        if(!kw) { renderTable(apiData); return; }
+        
+        const filtered = apiData.filter(d => {
+            const searchStr = `${d.code} ${d.name}`.toLowerCase();
+            return searchStr.includes(kw);
+        });
+        renderTable(filtered); // 검색 결과만 표에 반영
+    }
+
+    function renderTable(data) {
+        currentViewData = data; // ★ 현재 표에 그려진 데이터를 글로벌 변수에 저장 (엑셀용)
+        const tbody = document.getElementById('resultBody');
+        tbody.innerHTML = '';
+
+        if(!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:40px;">검색 결과가 없습니다.</td></tr>';
+            return;
+        }
+
+        data.forEach((d) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${d.code}</td>
+                <td style="text-align:left; font-weight:bold; color:#004b87;">${d.name}</td>
+                <td class="price">${Number(d.price).toLocaleString()}원</td>
+                <td class="date-col">${d.date}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ★ 엑셀 다운로드 기능
+    function exportToExcel() {
+        if (!currentViewData || currentViewData.length === 0) {
+            alert("엑셀로 다운로드할 데이터가 없습니다.");
+            return;
+        }
+
+        // 1. 화면에 보이는 데이터(currentViewData)를 엑셀 양식에 맞게 객체 배열로 변환
+        const excelData = currentViewData.map(d => ({
+            "코드(EDI)": d.code,
+            "비급여 항목명": d.name,
+            "제출 비용(단가)": Number(d.price), // 엑셀에서 사칙연산이 가능하도록 숫자형 유지
+            "최종 등록일자": d.date
+        }));
+
+        // 2. 워크시트 생성
+        const ws = XLSX.utils.json_to_sheet(excelData);
+
+        // (선택) 엑셀 열 너비 자동 조절로 가독성 향상
+        ws['!cols'] = [
+            {wch: 15}, // 코드
+            {wch: 60}, // 명칭
+            {wch: 15}, // 단가
+            {wch: 15}  // 등록일
+        ];
+
+        // 3. 워크북 생성 및 시트 추가
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "비급여단가_조회내역");
+
+        // 4. 파일명 생성 (선택한 병원명 + 오늘 날짜)
+        const hospName = document.getElementById('hospitalSelect').value;
+        const today = new Date();
+        const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
+        const filename = `[${hospName}]비급여단가조회_${dateStr}.xlsx`;
+
+        // 5. 엑셀 파일 다운로드 실행
+        XLSX.writeFile(wb, filename);
+    }
+
+    document.getElementById('searchInput').onkeypress = e => { if(e.key==='Enter') searchData(); };
+</script>
+
+</body>
+</html>
