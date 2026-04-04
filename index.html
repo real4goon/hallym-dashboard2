@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>상급종합병원 비급여 실시간 조회기 (XML 파싱 적용)</title>
+    <title>상급종합병원 비급여 단가 실시간 조회기</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; margin: 20px; background-color: #f4f7f9; }
@@ -39,6 +39,7 @@
         .footer { text-align: center; margin-top: 40px; padding-top: 25px; border-top: 2px dashed #e2e8f0; }
         .copyright { font-weight: bold; color: #64748b; margin-bottom: 15px; font-size: 13px; }
         .dashboard-link { display: inline-block; padding: 10px 20px; background-color: #f8fafc; border-radius: 5px; color: #0f172a; text-decoration: none; font-weight: bold; border: 1px solid #cbd5e1; transition: all 0.2s; font-size: 14px; }
+        .dashboard-link:hover { background-color: #004b87; color: white; border-color: #004b87; }
     </style>
 </head>
 <body>
@@ -112,6 +113,7 @@
         "화순전남대학교병원", "강릉아산병원"
     ].sort();
 
+    // 병원 리스트 생성 함수
     function initHospitalList() {
         const select = document.getElementById('hospitalSelect');
         if (!select) return;
@@ -121,7 +123,11 @@
         });
         select.innerHTML = optionsHtml;
     }
-    initHospitalList();
+
+    // ★ 안전장치 추가: HTML이 다 로딩된 직후에만 리스트를 꽂아넣도록 보장
+    document.addEventListener("DOMContentLoaded", function() {
+        initHospitalList();
+    });
 
     async function fetchApiData() {
         const hospName = document.getElementById('hospitalSelect').value;
@@ -129,22 +135,18 @@
         statusEl.innerText = "심평원 데이터 수집 중 (XML 분석)...";
         statusEl.style.color = "blue";
         
-        // ★ HTTPS 적용 및 JSON 파라미터 제거 (오직 XML 형식)
         const targetUrl = `https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemHospDtlList?ServiceKey=${API_KEY}&pageNo=1&numOfRows=5000&yadmNm=${encodeURIComponent(hospName)}`;
 
         try {
             let response;
             try {
-                // 1. 다이렉트 통신 시도
                 response = await fetch(targetUrl);
                 if(!response.ok) throw new Error();
             } catch(e) {
-                // 2. 실패 시 프록시 우회
                 const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
                 response = await fetch(proxyUrl);
             }
 
-            // ★ JSON 파싱이 아닌 XML 전용 DOMParser 적용 (에러의 원인 완벽 제거)
             const xmlText = await response.text();
             
             if(xmlText.includes("LIMITED")) throw new Error("LIMIT_EXCEEDED");
@@ -155,7 +157,6 @@
             if(items.length > 0) {
                 apiData = Array.from(items).map(node => {
                     const getText = (tag) => node.getElementsByTagName(tag)[0]?.textContent || '';
-                    
                     let rawDate = getText("adtFrDd") || '-';
                     let formattedDate = rawDate.length === 8 ? `${rawDate.slice(0,4)}-${rawDate.slice(4,6)}-${rawDate.slice(6,8)}` : rawDate;
                     
@@ -168,4 +169,124 @@
                 });
 
                 statusEl.innerText = `성공! 총 ${apiData.length.toLocaleString()}건 로드 완료.`;
-                statusEl
+                statusEl.style.color = "green";
+                
+                buildVirtualTree();
+                renderTable(apiData); 
+            } else {
+                statusEl.innerText = "데이터 0건 (결과 없음)";
+                statusEl.style.color = "red";
+                renderTable([]);
+            }
+        } catch (error) {
+            console.error(error);
+            if(error.message === "LIMIT_EXCEEDED") {
+                statusEl.innerText = "통신 실패! (일일 API 호출 한도 초과)";
+            } else {
+                statusEl.innerText = "통신 실패! (크롬 확장프로그램 활성화 필요)";
+            }
+            statusEl.style.color = "red";
+        }
+    }
+
+    function buildVirtualTree() {
+        const tree = document.getElementById('treeContent');
+        tree.innerHTML = '';
+        const categories = {
+            "초음파 검사료": [], "MRI (자기공명영상)": [], "로봇수술/처치": [], 
+            "도수/체외충격파": [], "제증명/진단서": [], "기타/미분류 항목": []
+        };
+
+        apiData.forEach(d => {
+            const name = d.name.toLowerCase();
+            if(name.includes('초음파')) categories["초음파 검사료"].push(d);
+            else if(name.includes('mri') || name.includes('자기공명')) categories["MRI (자기공명영상)"].push(d);
+            else if(name.includes('로봇')) categories["로봇수술/처치"].push(d);
+            else if(name.includes('도수') || name.includes('체외충격')) categories["도수/체외충격파"].push(d);
+            else if(name.includes('증명') || name.includes('진단서') || name.includes('확인서')) categories["제증명/진단서"].push(d);
+            else categories["기타/미분류 항목"].push(d);
+        });
+
+        for(let key in categories) {
+            const count = categories[key].length;
+            if(count === 0) continue;
+
+            const div = document.createElement('div');
+            div.className = 'category-item';
+            div.innerHTML = `📁 ${key} <span style="color:#d9534f; font-size:12px;">(${count}건)</span>`;
+            
+            const subDiv = document.createElement('div');
+            subDiv.className = 'sub-category';
+            
+            const displayLimit = Math.min(count, 40);
+            for(let i=0; i<displayLimit; i++) {
+                const item = categories[key][i];
+                const sItem = document.createElement('div');
+                sItem.className = 'sub-item';
+                sItem.innerHTML = `└ ${item.name}`;
+                sItem.onclick = (e) => { e.stopPropagation(); renderTable([item]); };
+                subDiv.appendChild(sItem);
+            }
+            if(count > 40) {
+                const moreItem = document.createElement('div');
+                moreItem.className = 'sub-item';
+                moreItem.style.color = '#888';
+                moreItem.style.borderBottom = 'none';
+                moreItem.innerHTML = `└ ...외 ${count - 40}건 (폴더 클릭 시 전체표시)`;
+                subDiv.appendChild(moreItem);
+            }
+
+            div.onclick = () => {
+                subDiv.style.display = subDiv.style.display === 'none' || subDiv.style.display === '' ? 'block' : 'none';
+                renderTable(categories[key]); 
+            };
+            div.appendChild(subDiv);
+            tree.appendChild(div);
+        }
+    }
+
+    function searchData() {
+        const kw = document.getElementById('searchInput').value.toLowerCase().trim();
+        if(!kw) { renderTable(apiData); return; }
+        const filtered = apiData.filter(d => { return `${d.code} ${d.name}`.toLowerCase().includes(kw); });
+        renderTable(filtered); 
+    }
+
+    function renderTable(data) {
+        currentViewData = data; 
+        const tbody = document.getElementById('resultBody');
+        tbody.innerHTML = '';
+        if(!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:40px;">검색 결과가 없습니다.</td></tr>';
+            return;
+        }
+        data.forEach((d) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${d.code}</td>
+                <td style="text-align:left; font-weight:bold; color:#004b87;">${d.name}</td>
+                <td class="price">${Number(d.price).toLocaleString()}원</td>
+                <td class="date-col">${d.date}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function exportToExcel() {
+        if (!currentViewData || currentViewData.length === 0) { alert("엑셀로 다운로드할 데이터가 없습니다."); return; }
+        const excelData = currentViewData.map(d => ({
+            "코드(EDI)": d.code, "비급여 항목명": d.name, "제출 비용(단가)": Number(d.price), "최종 등록일자": d.date
+        }));
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        ws['!cols'] = [ {wch: 15}, {wch: 60}, {wch: 15}, {wch: 15} ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "비급여단가_조회내역");
+        const hospName = document.getElementById('hospitalSelect').value;
+        const today = new Date();
+        const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
+        XLSX.writeFile(wb, `[${hospName}]비급여단가조회_${dateStr}.xlsx`);
+    }
+    document.getElementById('searchInput').onkeypress = e => { if(e.key==='Enter') searchData(); };
+</script>
+</body>
+</html>
