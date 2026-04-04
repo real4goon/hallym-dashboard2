@@ -36,8 +36,12 @@
         .price { color: #d9534f; font-weight: bold; font-size: 15px; }
         .date-col { color: #64748b; font-size: 12px; }
         
+        /* 하단 푸터 영역 업데이트 */
         .footer { text-align: center; margin-top: 40px; padding-top: 25px; border-top: 2px dashed #e2e8f0; }
-        .copyright { font-weight: bold; color: #64748b; margin-bottom: 15px; font-size: 13px; }
+        .copyright { font-weight: bold; color: #64748b; margin-bottom: 5px; font-size: 13px; }
+        .contact-email { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+        .contact-email a { color: #004b87; text-decoration: none; font-weight: bold; }
+        .contact-email a:hover { text-decoration: underline; }
         .dashboard-link { display: inline-block; padding: 10px 20px; background-color: #f8fafc; border-radius: 5px; color: #0f172a; text-decoration: none; font-weight: bold; border: 1px solid #cbd5e1; transition: all 0.2s; font-size: 14px; }
         .dashboard-link:hover { background-color: #004b87; color: white; border-color: #004b87; }
     </style>
@@ -84,6 +88,8 @@
 
     <div class="footer">
         <div class="copyright">Copyright © 2026. 한림대학교성심병원 원무팀 김영선 대리. All rights reserved.</div>
+        <div class="contact-email">✉️ 문의: <a href="mailto:4goon@hallym.or.kr">4goon@hallym.or.kr</a></div>
+        
         <a href="https://real4goon.github.io/hallym-dashboard/" target="_blank" class="dashboard-link">
             📊 다수 병원 전체 비교 프로그램 대시보드 바로가기 🔗
         </a>
@@ -113,7 +119,6 @@
         "화순전남대학교병원", "강릉아산병원"
     ].sort();
 
-    // 병원 리스트 생성 함수
     function initHospitalList() {
         const select = document.getElementById('hospitalSelect');
         if (!select) return;
@@ -124,7 +129,6 @@
         select.innerHTML = optionsHtml;
     }
 
-    // ★ 안전장치 추가: HTML이 다 로딩된 직후에만 리스트를 꽂아넣도록 보장
     document.addEventListener("DOMContentLoaded", function() {
         initHospitalList();
     });
