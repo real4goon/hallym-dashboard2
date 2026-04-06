@@ -10,7 +10,7 @@
         .header-title { text-align: center; color: #004b87; font-weight: bold; border-bottom: 3px solid #004b87; padding-bottom: 15px; margin-bottom: 20px; font-size: 24px;}
         
         .api-section { background: #e8f4fd; padding: 15px; border-radius: 5px; border: 1px solid #cce5ff; margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
-        select { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-width: 300px; }
+        select { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-width: 300px; outline: none; }
         input[type="text"] { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; flex: 1; outline: none; }
         input[type="text"]:focus { border-color: #004b87; }
         
@@ -36,7 +36,6 @@
         .price { color: #d9534f; font-weight: bold; font-size: 15px; }
         .date-col { color: #64748b; font-size: 12px; }
         
-        /* 하단 푸터 영역 업데이트 */
         .footer { text-align: center; margin-top: 40px; padding-top: 25px; border-top: 2px dashed #e2e8f0; }
         .copyright { font-weight: bold; color: #64748b; margin-bottom: 5px; font-size: 13px; }
         .contact-email { font-size: 13px; color: #64748b; margin-bottom: 20px; }
@@ -55,7 +54,7 @@
         <strong>📍 대상 병원 선택:</strong>
         <select id="hospitalSelect"></select>
         <button onclick="fetchApiData()">데이터 실시간 불러오기</button>
-        <span id="apiStatus" style="font-weight:bold; color:#666; margin-left:10px;">대기 중...</span>
+        <span id="apiStatus" style="font-weight:bold; margin-left:10px; font-size:14px;"></span>
     </div>
 
     <div class="api-section" style="background: #f8fafc;">
@@ -89,7 +88,6 @@
     <div class="footer">
         <div class="copyright">Copyright © 2026. 한림대학교성심병원 원무팀 김영선 대리. All rights reserved.</div>
         <div class="contact-email">✉️ 문의: <a href="mailto:4goon@hallym.or.kr">4goon@hallym.or.kr</a></div>
-        
         <a href="https://real4goon.github.io/hallym-dashboard/" target="_blank" class="dashboard-link">
             📊 다수 병원 전체 비교 프로그램 대시보드 바로가기 🔗
         </a>
@@ -101,30 +99,62 @@
     let apiData = [];
     let currentViewData = []; 
 
-    const hospList = [
-        "가천대학교길병원", "가톨릭대학교서울성모병원", "가톨릭대학교인천성모병원", 
-        "강북삼성병원", "건국대학교병원", "건양대학교병원", "경북대학교병원", 
-        "경상국립대학교병원", "계명대학교동산병원", "고려대학교의과대학부속구로병원", 
-        "고려대학교의과대학부속병원(안암)", "고려대학교의과대학부속안산병원", "고신대학교복음병원", 
-        "단국대학교의과대학부속병원", "대구가톨릭대학교병원", "동아대학교병원", 
-        "부산대학교병원", "분당서울대학교병원", "삼성서울병원", "서울대학교병원", 
-        "서울아산병원", "성균관대학교삼성창원병원", "순천향대학교부속부천병원", 
-        "순천향대학교부속천안병원", "아주대학교병원", "양산부산대학교병원", 
-        "연세대학교의과대학강남세브란스병원", "연세대학교원주세브란스기독병원", 
-        "연세대학교의과대학세브란스병원", "영남대학교병원", "원광대학교병원", 
-        "울산대학교병원", "이화여자대학교의과대학부속목동병원", "인제대학교부산백병원", 
-        "인제대학교해운대백병원", "인하대학교의과대학부속병원", "전남대학교병원", 
-        "전북대학교병원", "조선대학교병원", "중앙대학교병원", "충남대학교병원", 
-        "충북대학교병원", "칠곡경북대학교병원", "한림대학교성심병원", "한양대학교병원", 
-        "화순전남대학교병원", "강릉아산병원"
-    ].sort();
+    const hospData = [
+        { label: "한림대학교성심병원 (본원)", keyword: "한림대학교성심병원" },
+        { label: "가천대학교길병원", keyword: "가천대학교길병원" },
+        { label: "가톨릭대학교 서울성모병원", keyword: "서울성모병원" },
+        { label: "가톨릭대학교 인천성모병원", keyword: "인천성모병원" },
+        { label: "강북삼성병원", keyword: "강북삼성병원" },
+        { label: "건국대학교병원", keyword: "건국대학교병원" },
+        { label: "건양대학교병원", keyword: "건양대학교병원" },
+        { label: "경북대학교병원", keyword: "경북대학교병원" },
+        { label: "경상국립대학교병원", keyword: "경상국립대학교병원" },
+        { label: "계명대학교동산병원", keyword: "계명대학교동산병원" },
+        { label: "고려대학교 구로병원", keyword: "고려대학교의과대학부속구로병원" },
+        { label: "고려대학교 안암병원", keyword: "고려대학교의과대학부속병원" }, 
+        { label: "고려대학교 안산병원", keyword: "고려대학교의과대학부속안산병원" },
+        { label: "고신대학교복음병원", keyword: "고신대학교복음병원" },
+        { label: "단국대학교의과대학부속병원", keyword: "단국대학교의과대학부속병원" },
+        { label: "대구가톨릭대학교병원", keyword: "대구가톨릭대학교병원" },
+        { label: "동아대학교병원", keyword: "동아대학교병원" },
+        { label: "부산대학교병원", keyword: "부산대학교병원" },
+        { label: "분당서울대학교병원", keyword: "분당서울대학교병원" },
+        { label: "삼성서울병원", keyword: "삼성서울병원" },
+        { label: "서울대학교병원", keyword: "서울대학교병원" },
+        { label: "서울아산병원", keyword: "서울아산병원" },
+        { label: "성균관대학교삼성창원병원", keyword: "삼성창원병원" },
+        { label: "순천향대학교부속부천병원", keyword: "순천향대학교부속부천병원" },
+        { label: "순천향대학교부속천안병원", keyword: "순천향대학교부속천안병원" },
+        { label: "아주대학교병원", keyword: "아주대학교병원" },
+        { label: "양산부산대학교병원", keyword: "양산부산대학교병원" },
+        { label: "연세대학교 강남세브란스병원", keyword: "강남세브란스병원" },
+        { label: "연세대학교 원주세브란스기독병원", keyword: "원주세브란스기독병원" },
+        { label: "연세대학교 세브란스병원 (신촌)", keyword: "연세대학교의과대학세브란스병원" },
+        { label: "영남대학교병원", keyword: "영남대학교병원" },
+        { label: "원광대학교병원", keyword: "원광대학교병원" },
+        { label: "울산대학교병원", keyword: "울산대학교병원" },
+        { label: "이화여자대학교의과대학부속목동병원", keyword: "이화여자대학교의과대학부속목동병원" },
+        { label: "인제대학교부산백병원", keyword: "부산백병원" },
+        { label: "인제대학교해운대백병원", keyword: "해운대백병원" },
+        { label: "인하대학교의과대학부속병원", keyword: "인하대학교의과대학부속병원" },
+        { label: "전남대학교병원", keyword: "전남대학교병원" },
+        { label: "전북대학교병원", keyword: "전북대학교병원" },
+        { label: "조선대학교병원", keyword: "조선대학교병원" },
+        { label: "중앙대학교병원", keyword: "중앙대학교병원" },
+        { label: "충남대학교병원", keyword: "충남대학교병원" },
+        { label: "충북대학교병원", keyword: "충북대학교병원" },
+        { label: "칠곡경북대학교병원", keyword: "칠곡경북대학교병원" },
+        { label: "한양대학교병원", keyword: "한양대학교병원" },
+        { label: "화순전남대학교병원", keyword: "화순전남대학교병원" },
+        { label: "강릉아산병원", keyword: "강릉아산병원" }
+    ];
 
     function initHospitalList() {
         const select = document.getElementById('hospitalSelect');
         if (!select) return;
-        let optionsHtml = `<option value="한림대학교성심병원" selected>한림대학교성심병원 (기본)</option>`;
-        hospList.forEach(name => {
-            if(name !== "한림대학교성심병원") optionsHtml += `<option value="${name}">${name}</option>`;
+        let optionsHtml = '';
+        hospData.forEach(h => {
+            optionsHtml += `<option value="${h.keyword}">${h.label}</option>`;
         });
         select.innerHTML = optionsHtml;
     }
@@ -134,28 +164,57 @@
     });
 
     async function fetchApiData() {
-        const hospName = document.getElementById('hospitalSelect').value;
+        const hospSearchKeyword = document.getElementById('hospitalSelect').value;
         const statusEl = document.getElementById('apiStatus');
-        statusEl.innerText = "심평원 데이터 수집 중 (XML 분석)...";
+        
+        statusEl.innerText = "⏳ 데이터 환경에 따라 1분정도 소요됩니다...";
         statusEl.style.color = "blue";
         
-        const targetUrl = `https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemHospDtlList?ServiceKey=${API_KEY}&pageNo=1&numOfRows=5000&yadmNm=${encodeURIComponent(hospName)}`;
+        const targetUrl = `https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemHospDtlList?ServiceKey=${API_KEY}&pageNo=1&numOfRows=1000&yadmNm=${encodeURIComponent(hospSearchKeyword)}`;
+
+        let xmlText = "";
+        let fetchSuccess = false;
+
+        const fetchStrategies = [
+            async () => {
+                const res = await fetch(targetUrl);
+                if (!res.ok) throw new Error("Direct Failed");
+                return await res.text();
+            },
+            async () => {
+                const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+                if (!res.ok) throw new Error("Proxy 1 Failed");
+                return await res.text();
+            },
+            async () => {
+                const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+                if (!res.ok) throw new Error("Proxy 2 Failed");
+                return await res.text();
+            }
+        ];
+
+        for (let strategy of fetchStrategies) {
+            try {
+                xmlText = await strategy();
+                if (xmlText && !xmlText.includes("LIMITED") && !xmlText.includes("SERVICE_ERROR")) {
+                    fetchSuccess = true;
+                    break; 
+                }
+            } catch (e) {
+                console.warn("경로 우회 중...");
+            }
+        }
+
+        // ★ 통신 실패 및 0건 조회 시 동일한 강력한 안내 문구 표출
+        if (!fetchSuccess) {
+            statusEl.innerText = "❌ 0건으로 조회시 심평원 서버 오류이오니 잠시 후 다시 시도해주세요. (지속 시 [Allow CORS] 확장프로그램 사용 권장)";
+            statusEl.style.color = "red";
+            document.getElementById('treeContent').innerHTML = '데이터 통신 실패';
+            renderTable([]);
+            return;
+        }
 
         try {
-            let response;
-            try {
-                response = await fetch(targetUrl);
-                if(!response.ok) throw new Error();
-            } catch(e) {
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-                response = await fetch(proxyUrl);
-            }
-
-            const xmlText = await response.text();
-            
-            if(xmlText.includes("LIMITED")) throw new Error("LIMIT_EXCEEDED");
-            if(xmlText.includes("SERVICE_ERROR")) throw new Error("SERVER_DOWN");
-
             const items = new DOMParser().parseFromString(xmlText, "text/xml").getElementsByTagName("item");
 
             if(items.length > 0) {
@@ -166,30 +225,30 @@
                     
                     return {
                         code: getText("npayCd") || getText("cd") || '-',
-                        name: getText("npayKorNm") || getText("npayNm") || '명칭 없음',
+                        name: getText("npayKorNm") || getText("npayNm") || getText("npayCdNm") || '명칭 없음',
                         price: getText("curAmt") || getText("prcMin") || '0',
                         date: formattedDate
                     };
                 });
 
-                statusEl.innerText = `성공! 총 ${apiData.length.toLocaleString()}건 로드 완료.`;
+                statusEl.innerText = `✅ 성공! 총 ${apiData.length.toLocaleString()}건 완료`;
                 statusEl.style.color = "green";
                 
                 buildVirtualTree();
                 renderTable(apiData); 
             } else {
-                statusEl.innerText = "데이터 0건 (결과 없음)";
+                // 심평원이 에러 없이 0건을 돌려준 경우에도 확장 프로그램 안내 추가
+                statusEl.innerText = "❌ 0건으로 조회시 심평원 서버 오류이오니 잠시 후 다시 시도해주세요. (지속 시 [Allow CORS] 확장프로그램 사용 권장)";
                 statusEl.style.color = "red";
+                document.getElementById('treeContent').innerHTML = '데이터가 없습니다.';
                 renderTable([]);
             }
         } catch (error) {
             console.error(error);
-            if(error.message === "LIMIT_EXCEEDED") {
-                statusEl.innerText = "통신 실패! (일일 API 호출 한도 초과)";
-            } else {
-                statusEl.innerText = "통신 실패! (크롬 확장프로그램 활성화 필요)";
-            }
+            statusEl.innerText = "❌ 0건으로 조회시 심평원 서버 오류이오니 잠시 후 다시 시도해주세요. (지속 시 [Allow CORS] 확장프로그램 사용 권장)";
             statusEl.style.color = "red";
+            document.getElementById('treeContent').innerHTML = '데이터 통신 실패';
+            renderTable([]);
         }
     }
 
@@ -285,10 +344,13 @@
         ws['!cols'] = [ {wch: 15}, {wch: 60}, {wch: 15}, {wch: 15} ];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "비급여단가_조회내역");
-        const hospName = document.getElementById('hospitalSelect').value;
+        
+        const selectEl = document.getElementById('hospitalSelect');
+        const hospLabel = selectEl.options[selectEl.selectedIndex].text;
+        
         const today = new Date();
         const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
-        XLSX.writeFile(wb, `[${hospName}]비급여단가조회_${dateStr}.xlsx`);
+        XLSX.writeFile(wb, `[${hospLabel}]비급여단가조회_${dateStr}.xlsx`);
     }
     document.getElementById('searchInput').onkeypress = e => { if(e.key==='Enter') searchData(); };
 </script>
