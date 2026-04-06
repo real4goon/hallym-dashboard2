@@ -2,28 +2,40 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>상급종합병원 비급여 단가 실시간 조회기</title>
+    <title>상급종합병원 비급여 단가 실시간 조회기 [단일]</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; margin: 20px; background-color: #f4f7f9; }
         .container { max-width: 1300px; margin: auto; background: white; padding: 20px 30px 40px 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .header-title { text-align: center; color: #004b87; font-weight: bold; border-bottom: 3px solid #004b87; padding-bottom: 15px; margin-bottom: 20px; font-size: 24px;}
         
-        .api-section { background: #e8f4fd; padding: 15px; border-radius: 5px; border: 1px solid #cce5ff; margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
-        select { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-width: 300px; outline: none; }
-        input[type="text"] { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; flex: 1; outline: none; }
-        input[type="text"]:focus { border-color: #004b87; }
+        .manual-box { display: none; background-color: #fff5f5; border: 2px solid #ffcdd2; border-radius: 8px; padding: 15px; margin-bottom: 20px; color: #b71c1c; font-size: 13px; }
+        .manual-box a { color: #1976d2; font-weight: bold; }
+
+        /* 조회 라인 UI 최적화 */
+        .api-section { background: #e8f4fd; padding: 20px; border-radius: 5px; border: 1px solid #cce5ff; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+        .hospital-control { display: flex; flex-direction: column; gap: 5px; }
+        .save-notice { font-size: 12px; color: #004b87; font-weight: bold; padding-left: 2px; }
+        
+        select { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-width: 280px; }
+        
+        .update-info { font-size: 13px; color: #555; background: #fff; padding: 8px 12px; border-radius: 4px; border: 1px solid #cce5ff; font-weight: bold; min-width: 180px; text-align: center; }
+        .update-info.empty { color: #d9534f; }
+        
+        /* 로딩/진행상황 텍스트 */
+        #apiStatus { font-size: 13px; font-weight: bold; color: #666; transition: 0.3s; }
         
         button { padding: 10px 20px; background: #004b87; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; white-space: nowrap; transition: 0.2s; }
         button:hover { background: #003366; }
         .btn-excel { background-color: #10b981; }
         .btn-excel:hover { background-color: #059669; }
+
+        .search-area { background: #f8fafc; padding: 15px; border-radius: 5px; margin-bottom: 20px; display: flex; gap: 10px; }
+        input[type="text"] { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; flex: 1; outline: none; }
         
         .main-layout { display: flex; gap: 20px; }
         .tree-view { width: 300px; border: 1px solid #ddd; background: #fafafa; padding: 15px; overflow-y: auto; max-height: 600px; }
-        
         .category-item { font-weight: bold; cursor: pointer; margin-bottom: 10px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        .category-item:hover { color: #004b87; }
         .sub-category { padding-left: 15px; font-weight: normal; font-size: 12px; color: #555; display: none; margin-top: 5px; }
         .sub-item { padding: 5px 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px dashed #eee; }
         .sub-item:hover { color: #d9534f; font-weight: bold; }
@@ -32,54 +44,62 @@
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { border: 1px solid #e0e0e0; padding: 12px 10px; text-align: center; }
         th { background: #f1f5f9; position: sticky; top: 0; color: #1e293b; z-index: 10; }
-        tr:hover { background-color: #f8fafc; }
         .price { color: #d9534f; font-weight: bold; font-size: 15px; }
         .date-col { color: #64748b; font-size: 12px; }
         
         .footer { text-align: center; margin-top: 40px; padding-top: 25px; border-top: 2px dashed #e2e8f0; }
         .copyright { font-weight: bold; color: #64748b; margin-bottom: 5px; font-size: 13px; }
         .contact-email { font-size: 13px; color: #64748b; margin-bottom: 20px; }
-        .contact-email a { color: #004b87; text-decoration: none; font-weight: bold; }
-        .contact-email a:hover { text-decoration: underline; }
         .dashboard-link { display: inline-block; padding: 10px 20px; background-color: #f8fafc; border-radius: 5px; color: #0f172a; text-decoration: none; font-weight: bold; border: 1px solid #cbd5e1; transition: all 0.2s; font-size: 14px; }
-        .dashboard-link:hover { background-color: #004b87; color: white; border-color: #004b87; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header-title">🏥 상급종합병원 비급여 단가 실시간 조회기</div>
+    <div class="header-title">🌳 상급종합병원 비급여 조회기 [단일]</div>
 
-    <div class="api-section">
-        <strong>📍 대상 병원 선택:</strong>
-        <select id="hospitalSelect"></select>
-        <button onclick="fetchApiData()">데이터 실시간 불러오기</button>
-        <span id="apiStatus" style="font-weight:bold; margin-left:10px; font-size:14px;"></span>
+    <div id="corsManualBox" class="manual-box">
+        <strong>🚨 데이터 업데이트(동기화)가 되지 않나요?</strong>
+        원내 보안망에서는 <a href="https://chrome.google.com/webstore/detail/allow-cors-access-control/lhobafahddgcelffkeicbaginigeejlf" target="_blank">CORS 확장 프로그램</a> 활성화가 필요합니다.
     </div>
 
-    <div class="api-section" style="background: #f8fafc;">
-        <input type="text" id="searchInput" placeholder="결과 내 검색 (명칭, EDI 코드 부분 일치)">
-        <button onclick="searchData()">통합 검색</button>
+    <div class="api-section">
+        <div class="hospital-control">
+            <strong>📍 대상 병원 선택:</strong>
+            <select id="hospitalSelect" onchange="checkCacheInfo()"></select>
+            <span class="save-notice">※ 기존 조회된 값은 자동 저장됩니다. 필요 시 업데이트 해주세요.</span>
+        </div>
+        
+        <div id="updateInfo" class="update-info empty">저장된 데이터 없음</div>
+        
+        <button id="syncBtn" onclick="fetchApiData()">🚀 실시간 데이터 로드</button>
+        
+        <span id="apiStatus">대기 중...</span>
+    </div>
+
+    <div class="search-area">
+        <input type="text" id="searchInput" placeholder="결과 내 검색 (EDI 코드 또는 명칭 입력)">
+        <button onclick="searchData()">검색</button>
         <button class="btn-excel" onclick="exportToExcel()">📊 엑셀 다운로드</button>
     </div>
 
     <div class="main-layout">
         <div class="tree-view" id="treeView">
             <div style="font-weight:bold; border-bottom:2px solid #cbd5e1; margin-bottom:10px; padding-bottom:8px;">🗂️ 가상 카테고리 트리</div>
-            <div id="treeContent" style="color:#94a3b8; font-size:13px; margin-top: 10px;">상단에서 데이터를 불러와주세요.</div>
+            <div id="treeContent" style="color:#94a3b8; font-size:13px; margin-top: 10px;">병원을 선택하고 데이터를 불러와주세요.</div>
         </div>
         <div class="result-view">
             <table id="resultTable">
                 <thead>
                     <tr>
                         <th style="width: 15%;">코드(EDI)</th>
-                        <th style="width: 45%;">비급여 항목명 (npayKorNm)</th>
+                        <th style="width: 45%;">비급여 항목명</th>
                         <th style="width: 25%;">제출 비용(단가)</th>
                         <th style="width: 15%;">최종 등록일자</th>
                     </tr>
                 </thead>
                 <tbody id="resultBody">
-                    <tr><td colspan="4" style="text-align:center; padding: 60px; color:#94a3b8;">선택한 병원의 데이터가 여기에 표시됩니다.</td></tr>
+                    <tr><td colspan="4" style="text-align:center; padding: 60px; color:#94a3b8;">조회 버튼을 누르면 이전에 저장된 데이터 혹은 실시간 데이터를 표시합니다.</td></tr>
                 </tbody>
             </table>
         </div>
@@ -88,9 +108,7 @@
     <div class="footer">
         <div class="copyright">Copyright © 2026. 한림대학교성심병원 원무팀 김영선 대리. All rights reserved.</div>
         <div class="contact-email">✉️ 문의: <a href="mailto:4goon@hallym.or.kr">4goon@hallym.or.kr</a></div>
-        <a href="https://real4goon.github.io/hallym-dashboard/" target="_blank" class="dashboard-link">
-            📊 다수 병원 전체 비교 프로그램 대시보드 바로가기 🔗
-        </a>
+        <a href="https://real4goon.github.io/hallym-dashboard/" target="_blank" class="dashboard-link">📊 [통합] 다수 병원 전체 비교 대시보드 바로가기</a>
     </div>
 </div>
 
@@ -99,167 +117,128 @@
     let apiData = [];
     let currentViewData = []; 
 
-    const hospData = [
-        { label: "한림대학교성심병원 (본원)", keyword: "한림대학교성심병원" },
-        { label: "가천대학교길병원", keyword: "가천대학교길병원" },
-        { label: "가톨릭대학교 서울성모병원", keyword: "서울성모병원" },
-        { label: "가톨릭대학교 인천성모병원", keyword: "인천성모병원" },
-        { label: "강북삼성병원", keyword: "강북삼성병원" },
-        { label: "건국대학교병원", keyword: "건국대학교병원" },
-        { label: "건양대학교병원", keyword: "건양대학교병원" },
-        { label: "경북대학교병원", keyword: "경북대학교병원" },
-        { label: "경상국립대학교병원", keyword: "경상국립대학교병원" },
-        { label: "계명대학교동산병원", keyword: "계명대학교동산병원" },
-        { label: "고려대학교 구로병원", keyword: "고려대학교의과대학부속구로병원" },
-        { label: "고려대학교 안암병원", keyword: "고려대학교의과대학부속병원" }, 
-        { label: "고려대학교 안산병원", keyword: "고려대학교의과대학부속안산병원" },
-        { label: "고신대학교복음병원", keyword: "고신대학교복음병원" },
-        { label: "단국대학교의과대학부속병원", keyword: "단국대학교의과대학부속병원" },
-        { label: "대구가톨릭대학교병원", keyword: "대구가톨릭대학교병원" },
-        { label: "동아대학교병원", keyword: "동아대학교병원" },
-        { label: "부산대학교병원", keyword: "부산대학교병원" },
-        { label: "분당서울대학교병원", keyword: "분당서울대학교병원" },
-        { label: "삼성서울병원", keyword: "삼성서울병원" },
-        { label: "서울대학교병원", keyword: "서울대학교병원" },
-        { label: "서울아산병원", keyword: "서울아산병원" },
-        { label: "성균관대학교삼성창원병원", keyword: "삼성창원병원" },
-        { label: "순천향대학교부속부천병원", keyword: "순천향대학교부속부천병원" },
-        { label: "순천향대학교부속천안병원", keyword: "순천향대학교부속천안병원" },
-        { label: "아주대학교병원", keyword: "아주대학교병원" },
-        { label: "양산부산대학교병원", keyword: "양산부산대학교병원" },
-        { label: "연세대학교 강남세브란스병원", keyword: "강남세브란스병원" },
-        { label: "연세대학교 원주세브란스기독병원", keyword: "원주세브란스기독병원" },
-        { label: "연세대학교 세브란스병원 (신촌)", keyword: "연세대학교의과대학세브란스병원" },
-        { label: "영남대학교병원", keyword: "영남대학교병원" },
-        { label: "원광대학교병원", keyword: "원광대학교병원" },
-        { label: "울산대학교병원", keyword: "울산대학교병원" },
-        { label: "이화여자대학교의과대학부속목동병원", keyword: "이화여자대학교의과대학부속목동병원" },
-        { label: "인제대학교부산백병원", keyword: "부산백병원" },
-        { label: "인제대학교해운대백병원", keyword: "해운대백병원" },
-        { label: "인하대학교의과대학부속병원", keyword: "인하대학교의과대학부속병원" },
-        { label: "전남대학교병원", keyword: "전남대학교병원" },
-        { label: "전북대학교병원", keyword: "전북대학교병원" },
-        { label: "조선대학교병원", keyword: "조선대학교병원" },
-        { label: "중앙대학교병원", keyword: "중앙대학교병원" },
-        { label: "충남대학교병원", keyword: "충남대학교병원" },
-        { label: "충북대학교병원", keyword: "충북대학교병원" },
-        { label: "칠곡경북대학교병원", keyword: "칠곡경북대학교병원" },
-        { label: "한양대학교병원", keyword: "한양대학교병원" },
-        { label: "화순전남대학교병원", keyword: "화순전남대학교병원" },
-        { label: "강릉아산병원", keyword: "강릉아산병원" }
-    ];
-
-    function initHospitalList() {
-        const select = document.getElementById('hospitalSelect');
-        if (!select) return;
-        let optionsHtml = '';
-        hospData.forEach(h => {
-            optionsHtml += `<option value="${h.keyword}">${h.label}</option>`;
-        });
-        select.innerHTML = optionsHtml;
-    }
+    const hospList = [
+        "가천대학교길병원", "가톨릭대학교서울성모병원", "가톨릭대학교인천성모병원", "강북삼성병원", "건국대학교병원", "건양대학교병원", "경북대학교병원", "경상국립대학교병원", "계명대학교동산병원", "고려대학교의과대학부속구로병원", "고려대학교의과대학부속병원(안암)", "고려대학교의과대학부속안산병원", "고신대학교복음병원", "단국대학교의과대학부속병원", "대구가톨릭대학교병원", "동아대학교병원", "부산대학교병원", "분당서울대학교병원", "삼성서울병원", "서울대학교병원", "서울아산병원", "성균관대학교삼성창원병원", "순천향대학교부속부천병원", "순천향대학교부속천안병원", "아주대학교병원", "양산부산대학교병원", "연세대학교의과대학강남세브란스병원", "연세대학교원주세브란스기독병원", "연세대학교의과대학세브란스병원", "영남대학교병원", "원광대학교병원", "울산대학교병원", "이화여자대학교의과대학부속목동병원", "인제대학교부산백병원", "인제대학교해운대백병원", "인하대학교의과대학부속병원", "전남대학교병원", "전북대학교병원", "조선대학교병원", "중앙대학교병원", "충남대학교병원", "충북대학교병원", "칠곡경북대학교병원", "한림대학교성심병원", "한양대학교병원", "화순전남대학교병원", "강릉아산병원"
+    ].sort();
 
     document.addEventListener("DOMContentLoaded", function() {
-        initHospitalList();
+        const select = document.getElementById('hospitalSelect');
+        let optionsHtml = `<option value="한림대학교성심병원" selected>한림대학교성심병원 (기본)</option>`;
+        hospList.forEach(name => { if(name !== "한림대학교성심병원") optionsHtml += `<option value="${name}">${name}</option>`; });
+        select.innerHTML = optionsHtml;
+        checkCacheInfo();
     });
 
-    async function fetchApiData() {
-        const hospSearchKeyword = document.getElementById('hospitalSelect').value;
+    function checkCacheInfo() {
+        const hospName = document.getElementById('hospitalSelect').value;
+        const infoEl = document.getElementById('updateInfo');
+        const btnEl = document.getElementById('syncBtn');
         const statusEl = document.getElementById('apiStatus');
         
-        statusEl.innerText = "⏳ 데이터 환경에 따라 1분정도 소요됩니다...";
-        statusEl.style.color = "blue";
-        
-        const targetUrl = `https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemHospDtlList?ServiceKey=${API_KEY}&pageNo=1&numOfRows=1000&yadmNm=${encodeURIComponent(hospSearchKeyword)}`;
+        const savedData = localStorage.getItem(`cache_${hospName}`);
+        const savedDate = localStorage.getItem(`date_${hospName}`);
 
-        let xmlText = "";
-        let fetchSuccess = false;
+        statusEl.innerText = "대기 중...";
+        statusEl.style.color = "#666";
 
-        const fetchStrategies = [
-            async () => {
-                const res = await fetch(targetUrl);
-                if (!res.ok) throw new Error("Direct Failed");
-                return await res.text();
-            },
-            async () => {
-                const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-                if (!res.ok) throw new Error("Proxy 1 Failed");
-                return await res.text();
-            },
-            async () => {
-                const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
-                if (!res.ok) throw new Error("Proxy 2 Failed");
-                return await res.text();
-            }
-        ];
-
-        for (let strategy of fetchStrategies) {
-            try {
-                xmlText = await strategy();
-                if (xmlText && !xmlText.includes("LIMITED") && !xmlText.includes("SERVICE_ERROR")) {
-                    fetchSuccess = true;
-                    break; 
-                }
-            } catch (e) {
-                console.warn("경로 우회 중...");
-            }
-        }
-
-        // ★ 통신 실패 및 0건 조회 시 동일한 강력한 안내 문구 표출
-        if (!fetchSuccess) {
-            statusEl.innerText = "❌ 0건으로 조회시 심평원 서버 오류이오니 잠시 후 다시 시도해주세요. (지속 시 [Allow CORS] 확장프로그램 사용 권장)";
-            statusEl.style.color = "red";
-            document.getElementById('treeContent').innerHTML = '데이터 통신 실패';
-            renderTable([]);
-            return;
-        }
-
-        try {
-            const items = new DOMParser().parseFromString(xmlText, "text/xml").getElementsByTagName("item");
-
-            if(items.length > 0) {
-                apiData = Array.from(items).map(node => {
-                    const getText = (tag) => node.getElementsByTagName(tag)[0]?.textContent || '';
-                    let rawDate = getText("adtFrDd") || '-';
-                    let formattedDate = rawDate.length === 8 ? `${rawDate.slice(0,4)}-${rawDate.slice(4,6)}-${rawDate.slice(6,8)}` : rawDate;
-                    
-                    return {
-                        code: getText("npayCd") || getText("cd") || '-',
-                        name: getText("npayKorNm") || getText("npayNm") || getText("npayCdNm") || '명칭 없음',
-                        price: getText("curAmt") || getText("prcMin") || '0',
-                        date: formattedDate
-                    };
-                });
-
-                statusEl.innerText = `✅ 성공! 총 ${apiData.length.toLocaleString()}건 완료`;
-                statusEl.style.color = "green";
-                
-                buildVirtualTree();
-                renderTable(apiData); 
-            } else {
-                // 심평원이 에러 없이 0건을 돌려준 경우에도 확장 프로그램 안내 추가
-                statusEl.innerText = "❌ 0건으로 조회시 심평원 서버 오류이오니 잠시 후 다시 시도해주세요. (지속 시 [Allow CORS] 확장프로그램 사용 권장)";
-                statusEl.style.color = "red";
-                document.getElementById('treeContent').innerHTML = '데이터가 없습니다.';
-                renderTable([]);
-            }
-        } catch (error) {
-            console.error(error);
-            statusEl.innerText = "❌ 0건으로 조회시 심평원 서버 오류이오니 잠시 후 다시 시도해주세요. (지속 시 [Allow CORS] 확장프로그램 사용 권장)";
-            statusEl.style.color = "red";
-            document.getElementById('treeContent').innerHTML = '데이터 통신 실패';
-            renderTable([]);
+        if (savedData && savedDate) {
+            infoEl.innerText = `✅ 최근 저장: ${savedDate}`;
+            infoEl.className = "update-info";
+            btnEl.innerText = "🔄 최신 데이터로 업데이트";
+            apiData = JSON.parse(savedData);
+            buildVirtualTree();
+            renderTable(apiData);
+        } else {
+            infoEl.innerText = "저장된 데이터 없음";
+            infoEl.className = "update-info empty";
+            btnEl.innerText = "🚀 실시간 데이터 로드";
+            apiData = [];
+            document.getElementById('resultBody').innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 60px; color:#94a3b8;">저장된 데이터가 없습니다. 실시간 조회를 눌러주세요.</td></tr>';
+            document.getElementById('treeContent').innerHTML = '데이터를 불러와주세요.';
         }
     }
 
+    async function fetchApiData() {
+        const hospName = document.getElementById('hospitalSelect').value;
+        const infoEl = document.getElementById('updateInfo');
+        const statusEl = document.getElementById('apiStatus');
+        const manualBox = document.getElementById('corsManualBox');
+        
+        // ★ 조회 중 안내 강화
+        statusEl.innerText = "⏳ 조회 중 (심평원 서버에서 데이터를 수집 중입니다. 1분 내외로 소요됩니다.)";
+        statusEl.style.color = "#004b87";
+        manualBox.style.display = "none";
+        
+        let tempApiData = []; 
+        let pageNo = 1;
+        let hasMoreData = true;
+
+        try {
+            while(hasMoreData) {
+                const targetUrl = `https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemHospDtlList?ServiceKey=${API_KEY}&pageNo=${pageNo}&numOfRows=1000&yadmNm=${encodeURIComponent(hospName)}`;
+                let response;
+
+                try {
+                    response = await fetch(targetUrl);
+                    if(!response.ok) throw new Error();
+                } catch(e) {
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+                    response = await fetch(proxyUrl);
+                }
+
+                const xmlText = await response.text();
+                const items = new DOMParser().parseFromString(xmlText, "text/xml").getElementsByTagName("item");
+
+                if(items.length > 0) {
+                    const pageData = Array.from(items).map(node => {
+                        const getText = (tag) => node.getElementsByTagName(tag)[0]?.textContent || '';
+                        let rawDate = getText("adtFrDd") || '-';
+                        let formattedDate = rawDate.length === 8 ? `${rawDate.slice(0,4)}-${rawDate.slice(4,6)}-${rawDate.slice(6,8)}` : rawDate;
+                        return {
+                            code: getText("npayCd") || getText("cd") || '-',
+                            name: getText("npayKorNm") || getText("npayNm") || '명칭 없음',
+                            price: getText("curAmt") || getText("prcMin") || '0',
+                            date: formattedDate
+                        };
+                    });
+                    tempApiData = tempApiData.concat(pageData);
+                    statusEl.innerText = `⏳ 수집 중... (현재 ${tempApiData.length}건 완료)`;
+                    if(items.length < 1000) hasMoreData = false;
+                    else pageNo++;
+                } else {
+                    hasMoreData = false;
+                }
+            }
+
+            if(tempApiData.length > 0) {
+                apiData = tempApiData;
+                const now = new Date();
+                const nowStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                
+                localStorage.setItem(`cache_${hospName}`, JSON.stringify(apiData));
+                localStorage.setItem(`date_${hospName}`, nowStr);
+                
+                statusEl.innerText = `✅ 수집 완료! (총 ${apiData.length}건)`;
+                statusEl.style.color = "green";
+                checkCacheInfo();
+            } else {
+                // ★ 0건 조회 시 안내 강화
+                statusEl.innerText = "⚠️ 조회 결과가 0건입니다. 심평원 서버 지연일 수 있으니 잠시 후 다시 시도해 주세요.";
+                statusEl.style.color = "#d9534f";
+            }
+
+        } catch (error) {
+            manualBox.style.display = "block";
+            statusEl.innerText = "❌ 통신 오류 발생 (확장 프로그램을 확인하세요)";
+            statusEl.style.color = "#d9534f";
+        }
+    }
+
+    // 트리 및 테이블 렌더링 (기존 로직 동일)
     function buildVirtualTree() {
         const tree = document.getElementById('treeContent');
         tree.innerHTML = '';
-        const categories = {
-            "초음파 검사료": [], "MRI (자기공명영상)": [], "로봇수술/처치": [], 
-            "도수/체외충격파": [], "제증명/진단서": [], "기타/미분류 항목": []
-        };
-
+        const categories = { "초음파 검사료": [], "MRI (자기공명영상)": [], "로봇수술/처치": [], "도수/체외충격파": [], "제증명/진단서": [], "기타/미분류 항목": [] };
         apiData.forEach(d => {
             const name = d.name.toLowerCase();
             if(name.includes('초음파')) categories["초음파 검사료"].push(d);
@@ -269,40 +248,22 @@
             else if(name.includes('증명') || name.includes('진단서') || name.includes('확인서')) categories["제증명/진단서"].push(d);
             else categories["기타/미분류 항목"].push(d);
         });
-
         for(let key in categories) {
             const count = categories[key].length;
             if(count === 0) continue;
-
             const div = document.createElement('div');
             div.className = 'category-item';
-            div.innerHTML = `📁 ${key} <span style="color:#d9534f; font-size:12px;">(${count}건)</span>`;
-            
+            div.innerHTML = `📁 ${key} (${count})`;
             const subDiv = document.createElement('div');
             subDiv.className = 'sub-category';
-            
-            const displayLimit = Math.min(count, 40);
-            for(let i=0; i<displayLimit; i++) {
-                const item = categories[key][i];
+            categories[key].slice(0,40).forEach(item => {
                 const sItem = document.createElement('div');
                 sItem.className = 'sub-item';
                 sItem.innerHTML = `└ ${item.name}`;
                 sItem.onclick = (e) => { e.stopPropagation(); renderTable([item]); };
                 subDiv.appendChild(sItem);
-            }
-            if(count > 40) {
-                const moreItem = document.createElement('div');
-                moreItem.className = 'sub-item';
-                moreItem.style.color = '#888';
-                moreItem.style.borderBottom = 'none';
-                moreItem.innerHTML = `└ ...외 ${count - 40}건 (폴더 클릭 시 전체표시)`;
-                subDiv.appendChild(moreItem);
-            }
-
-            div.onclick = () => {
-                subDiv.style.display = subDiv.style.display === 'none' || subDiv.style.display === '' ? 'block' : 'none';
-                renderTable(categories[key]); 
-            };
+            });
+            div.onclick = () => { subDiv.style.display = subDiv.style.display === 'none' ? 'block' : 'none'; renderTable(categories[key]); };
             div.appendChild(subDiv);
             tree.appendChild(div);
         }
@@ -311,46 +272,27 @@
     function searchData() {
         const kw = document.getElementById('searchInput').value.toLowerCase().trim();
         if(!kw) { renderTable(apiData); return; }
-        const filtered = apiData.filter(d => { return `${d.code} ${d.name}`.toLowerCase().includes(kw); });
-        renderTable(filtered); 
+        renderTable(apiData.filter(d => `${d.code} ${d.name}`.toLowerCase().includes(kw)));
     }
 
     function renderTable(data) {
         currentViewData = data; 
         const tbody = document.getElementById('resultBody');
         tbody.innerHTML = '';
-        if(!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:40px;">검색 결과가 없습니다.</td></tr>';
-            return;
-        }
         data.forEach((d) => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${d.code}</td>
-                <td style="text-align:left; font-weight:bold; color:#004b87;">${d.name}</td>
-                <td class="price">${Number(d.price).toLocaleString()}원</td>
-                <td class="date-col">${d.date}</td>
-            `;
+            tr.innerHTML = `<td>${d.code}</td><td style="text-align:left; font-weight:bold; color:#004b87;">${d.name}</td><td class="price">${Number(d.price).toLocaleString()}원</td><td class="date-col">${d.date}</td>`;
             tbody.appendChild(tr);
         });
     }
 
     function exportToExcel() {
-        if (!currentViewData || currentViewData.length === 0) { alert("엑셀로 다운로드할 데이터가 없습니다."); return; }
-        const excelData = currentViewData.map(d => ({
-            "코드(EDI)": d.code, "비급여 항목명": d.name, "제출 비용(단가)": Number(d.price), "최종 등록일자": d.date
-        }));
+        if (!currentViewData.length) return;
+        const excelData = currentViewData.map(d => ({ "코드(EDI)": d.code, "비급여 항목명": d.name, "제출 비용(단가)": Number(d.price), "최종 등록일자": d.date }));
         const ws = XLSX.utils.json_to_sheet(excelData);
-        ws['!cols'] = [ {wch: 15}, {wch: 60}, {wch: 15}, {wch: 15} ];
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "비급여단가_조회내역");
-        
-        const selectEl = document.getElementById('hospitalSelect');
-        const hospLabel = selectEl.options[selectEl.selectedIndex].text;
-        
-        const today = new Date();
-        const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
-        XLSX.writeFile(wb, `[${hospLabel}]비급여단가조회_${dateStr}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "비급여조회");
+        XLSX.writeFile(wb, `비급여단가_${document.getElementById('hospitalSelect').value}.xlsx`);
     }
     document.getElementById('searchInput').onkeypress = e => { if(e.key==='Enter') searchData(); };
 </script>
