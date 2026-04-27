@@ -84,7 +84,7 @@
     </div>
 
     <div class="search-area">
-        <input type="text" id="searchInput" placeholder="결과 내 검색 (EDI 코드 또는 명칭 입력)">
+        <input type="text" id="searchInput" placeholder="결과 내 검색 (예: MRI 근골격 - 띄어쓰기 AND 검색 지원)">
         <button onclick="searchData()">검색</button>
         <button class="btn-excel" onclick="exportToExcel()">📊 엑셀 다운로드</button>
     </div>
@@ -263,9 +263,24 @@
         });
     }
 
+    // ★ 수정된 부분: 띄어쓰기 기준 AND 검색 지원
     function searchData() {
         const kw = document.getElementById('searchInput').value.toLowerCase().trim();
-        renderTable(apiData.filter(d => `${d.code} ${d.name}`.toLowerCase().includes(kw)));
+        if (!kw) {
+            renderTable(apiData);
+            return;
+        }
+
+        // 스페이스(공백)를 기준으로 검색어를 여러 개로 쪼갬
+        const keywords = kw.split(/\s+/).filter(Boolean);
+
+        const filteredData = apiData.filter(d => {
+            const targetStr = `${d.code} ${d.name}`.toLowerCase();
+            // 쪼개진 모든 키워드(AND)가 대상 문자열에 포함되어야만 true
+            return keywords.every(k => targetStr.includes(k));
+        });
+
+        renderTable(filteredData);
     }
 
     function exportToExcel() {
