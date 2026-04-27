@@ -1,1397 +1,280 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V5.2</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<style>
-/* ══════════════════════════════════════════════
-   기본 / 변수
-══════════════════════════════════════════════ */
-:root{
-  --navy:#0F2744; --navy2:#1a3a5c;
-  --blue:#2E86C1; --cyan:#41B6E6;
-  --pink:#E8445A; --pink2:#C93349;
-  --green:#1a7a4a;
-  --bg:#EEF2F7; --card:#fff;
-  --border:#D8E3EF; --text:#1E293B;
-  --muted:#64748B; --light:#F1F6FC;
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    <meta charset="UTF-8">
+    <title>상급종합병원 비급여 단가 실시간 조회기 [단일 V2.0]</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --hi-blue: #004b87; 
+            --hi-blue-hover: #003366;
+            --hi-pink: #F15C75; 
+            --hi-pink-hover: #D14A5F;
+            --excel-green: #10b981;
+        }
 
-/* ══════════════════════════════════════════════
-   SIDEBAR 레이아웃
-══════════════════════════════════════════════ */
-.layout-sidebar{display:flex;min-height:100vh;}
+        body { font-family: 'Malgun Gothic', sans-serif; margin: 20px; background-color: #f4f7f9; user-select: none; }
+        .container { max-width: 1300px; margin: auto; background: white; padding: 20px 30px 40px 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); position: relative; }
+        
+        .header-title { text-align: center; color: var(--hi-blue); font-weight: bold; border-bottom: 3px solid var(--hi-blue); padding-bottom: 15px; margin-bottom: 15px; font-size: 24px; margin-top: 40px;}
+        
+        /* ★ 전 기기 동기화 카운터 디자인 */
+        .counter-badge { text-align: center; margin-bottom: 20px; min-height: 25px; }
 
-/* 사이드바 */
-.sidebar{
-  width:280px;flex-shrink:0;
-  background:var(--navy);
-  display:flex;flex-direction:column;
-  position:sticky;top:0;height:100vh;overflow-y:auto;
-}
-.sb-logo{padding:22px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.08);}
-.sb-logo h1{font-size:14.5px;font-weight:900;color:#fff;line-height:1.45;}
-.sb-logo p{font-size:11px;color:rgba(255,255,255,0.38);margin-top:3px;}
-.sb-section{padding:14px 14px 6px;}
-.sb-section-title{font-size:10px;font-weight:700;color:rgba(255,255,255,0.28);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:9px;padding:0 6px;}
-.sb-row{display:flex;gap:6px;padding:0 6px;margin-bottom:9px;}
-.sb-row button{flex:1;padding:5px;border:1px solid rgba(255,255,255,0.13);background:transparent;color:rgba(255,255,255,0.38);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;transition:.15s;}
-.sb-row button:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.65);}
-.hosp-list-sb{display:flex;flex-direction:column;gap:2px;}
-.hi{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .15s;user-select:none;}
-.hi:hover{background:rgba(255,255,255,0.06);}
-.hi.on{background:rgba(65,182,230,0.16);}
-.hi.my.on{background:rgba(232,68,90,0.19);}
-.hi input{display:none;}
-.h-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:rgba(255,255,255,0.14);transition:background .15s;}
-.hi.on .h-dot{background:var(--cyan);}
-.hi.my.on .h-dot{background:var(--pink);}
-.h-name{font-size:12px;color:rgba(255,255,255,0.42);flex:1;font-weight:500;transition:color .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
-.hi.on .h-name{color:rgba(255,255,255,0.9);}
-.hi.my .h-name{color:rgba(255,255,255,0.6);}
-.hi.my.on .h-name{color:#FFAAB5;font-weight:700;}
-.h-info{display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex-shrink:0;}
-.h-cnt{font-size:10px;color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:10px;white-space:nowrap;}
-.h-date{font-size:9.5px;color:rgba(255,255,255,0.18);white-space:nowrap;}
-.hi.on .h-cnt{color:rgba(255,255,255,0.42);background:rgba(255,255,255,0.09);}
-.hi.on .h-date{color:rgba(255,255,255,0.32);}
-.hc-meta{display:flex;flex-direction:column;align-items:flex-end;gap:1px;}
-.hc-date{font-size:9.5px;color:rgba(255,255,255,0.2);}
-.hc.on .hc-date{color:rgba(255,255,255,0.38);}
-.cell-price{font-weight:700;font-size:13px;line-height:1.3;}
-.cell-date{font-size:10px;color:rgba(0,0,0,0.35);margin-top:2px;}
-.load-btn-sb{margin:8px 6px 10px;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;text-align:center;width:calc(100% - 12px);display:block;}
-.load-btn-sb:hover:not(:disabled){background:#2471A3;}
-.load-btn-sb:disabled{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.22);cursor:not-allowed;}
-.sb-status{padding:7px 14px 12px;font-size:11px;color:rgba(255,255,255,0.28);line-height:1.6;}
+        .manual-box { display: none; background-color: #fff5f5; border: 2px solid #ffcdd2; border-radius: 8px; padding: 15px; margin-bottom: 20px; color: #b71c1c; font-size: 13px; }
 
-/* 메인 (sidebar 레이아웃) */
-.main-sb{flex:1;display:flex;flex-direction:column;min-width:0;}
+        .api-section { background: #e8f4fd; padding: 20px; border-radius: 5px; border: 1px solid #cce5ff; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+        .hospital-control { display: flex; flex-direction: column; gap: 5px; }
+        .save-notice { font-size: 12px; color: var(--hi-blue); font-weight: bold; padding-left: 2px; }
+        
+        select { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-width: 280px; }
+        .update-info { font-size: 13px; color: #555; background: #fff; padding: 8px 12px; border-radius: 4px; border: 1px solid #cce5ff; font-weight: bold; min-width: 180px; text-align: center; }
+        
+        #apiStatus { font-size: 13px; font-weight: bold; color: #666; }
+        
+        button { padding: 10px 20px; background: var(--hi-blue); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; white-space: nowrap; transition: 0.2s; }
+        button:hover { background: var(--hi-blue-hover); }
+        .btn-excel { background-color: var(--excel-green); }
 
-/* ══════════════════════════════════════════════
-   TOPBAR 레이아웃
-══════════════════════════════════════════════ */
-.layout-top{display:flex;flex-direction:column;min-height:100vh;}
-.layout-top .main-top{flex:1;display:flex;flex-direction:column;}
-
-/* 병원 가로 스트립 */
-.hosp-strip{
-  background:var(--navy);
-  padding:14px 24px 12px;
-  border-bottom:1px solid rgba(255,255,255,0.1);
-}
-.hosp-strip-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
-.hosp-strip-title{font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:.8px;text-transform:uppercase;}
-.strip-actions{display:flex;gap:10px;align-items:center;}
-.strip-btn{padding:4px 12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.5);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;transition:.15s;}
-.strip-btn:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.75);}
-.load-btn-top{padding:7px 18px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap;}
-.load-btn-top:hover:not(:disabled){background:#2471A3;}
-.load-btn-top:disabled{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.25);cursor:not-allowed;}
-.hosp-chips-wrap{display:flex;flex-wrap:wrap;gap:6px;}
-.hc{display:flex;align-items:center;gap:6px;padding:5px 12px;border:1.5px solid rgba(255,255,255,0.15);border-radius:20px;cursor:pointer;user-select:none;transition:.15s;}
-.hc:hover{border-color:rgba(255,255,255,0.35);}
-.hc.on{border-color:var(--cyan);background:rgba(65,182,230,0.15);}
-.hc.my.on{border-color:var(--pink);background:rgba(232,68,90,0.15);}
-.hc input{display:none;}
-.hc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;background:rgba(255,255,255,0.2);}
-.hc.on .hc-dot{background:var(--cyan);}
-.hc.my.on .hc-dot{background:var(--pink);}
-.hc-name{font-size:12px;color:rgba(255,255,255,0.5);font-weight:500;transition:color .15s;}
-.hc.on .hc-name{color:rgba(255,255,255,0.9);}
-.hc.my.on .hc-name{color:#FFAAB5;font-weight:700;}
-.hc-cnt{font-size:10px;color:rgba(255,255,255,0.25);white-space:nowrap;}
-.strip-status{font-size:11px;color:rgba(255,255,255,0.3);padding-top:8px;}
-
-/* ══════════════════════════════════════════════
-   공통 - 탑바
-══════════════════════════════════════════════ */
-.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:13px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
-.topbar-left{flex:1;}
-.topbar-title{font-size:15px;font-weight:700;color:var(--navy);}
-.topbar-meta{font-size:11.5px;color:var(--muted);margin-top:2px;}
-.topbar-right{display:flex;align-items:center;gap:10px;}
-.data-badge{background:var(--light);border:1px solid var(--border);padding:5px 14px;border-radius:20px;font-size:12px;color:var(--blue);font-weight:700;white-space:nowrap;}
-.layout-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
-.lt-btn{padding:6px 12px;border:none;background:transparent;cursor:pointer;font-size:12px;color:var(--muted);font-family:inherit;transition:.15s;display:flex;align-items:center;gap:4px;}
-.lt-btn:hover{background:var(--light);}
-.lt-btn.active{background:var(--navy);color:#fff;font-weight:700;}
-
-/* ══════════════════════════════════════════════
-   콘텐츠 영역
-══════════════════════════════════════════════ */
-.content{padding:20px 24px;flex:1;}
-
-/* ══════════════════════════════════════════════
-   검색 카드
-══════════════════════════════════════════════ */
-.search-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
-.search-card-title{font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.4px;margin-bottom:11px;}
-.search-row{display:flex;gap:10px;align-items:center;}
-.search-wrap{flex:1;position:relative;}
-.search-input{width:100%;padding:10px 16px;border:2px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;outline:none;transition:border .2s;background:var(--light);}
-.search-input:focus{border-color:var(--cyan);background:#fff;}
-.search-input:disabled{opacity:.45;cursor:not-allowed;}
-
-/* 드롭다운 */
-.dropdown{
-  position:absolute;top:calc(100% + 6px);left:0;right:0;
-  background:#fff;border:1px solid var(--border);
-  border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.13);
-  z-index:400;display:none;flex-direction:column;max-height:360px;
-}
-.dropdown.open{display:flex;}
-.dd-head{padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--light);flex-shrink:0;border-radius:10px 10px 0 0;}
-.dd-head span{font-size:11.5px;color:var(--muted);}
-.dd-sa{font-size:11.5px;color:var(--blue);cursor:pointer;font-weight:700;background:none;border:none;font-family:inherit;padding:0;}
-.dd-sa:hover{text-decoration:underline;}
-.dd-list{overflow-y:auto;flex:1;}
-.ddi{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;font-size:13px;border-bottom:1px solid #F5F7FA;user-select:none;}
-.ddi:hover{background:var(--light);}
-.ddi.sel{background:#EFF9FF;}
-.ddi input{accent-color:var(--blue);width:15px;height:15px;flex-shrink:0;pointer-events:none;}
-.ddi-name{flex:1;}
-.ddi-edi{font-size:11px;color:var(--muted);}
-.dd-foot{padding:8px 14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--light);flex-shrink:0;border-radius:0 0 10px 10px;}
-.dd-cnt{font-size:11.5px;color:var(--muted);}
-.dd-ok{padding:6px 18px;background:var(--blue);color:#fff;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;}
-.dd-ok:hover{background:#2471A3;}
-
-/* 칩 */
-.sel-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
-.chip{display:flex;align-items:center;gap:5px;background:#EFF9FF;border:1px solid #B8E4F9;padding:4px 10px;border-radius:20px;font-size:12px;color:var(--blue);}
-.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
-.chip-del{cursor:pointer;color:#94A3B8;flex-shrink:0;font-size:14px;line-height:1;}
-.chip-del:hover{color:var(--pink);}
-.chip-clear{background:#F1F5F9;border-color:#CBD5E1;color:var(--muted);cursor:pointer;}
-.chip-clear:hover{background:#FFE4E8;border-color:var(--pink);color:var(--pink);}
-
-/* 버튼 */
-.btn{padding:10px 18px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.15s;}
-.btn:disabled{opacity:.4;cursor:not-allowed;}
-.btn-excel{background:var(--green);color:#fff;}
-.btn-excel:not(:disabled):hover{background:#145a37;}
-
-/* ══════════════════════════════════════════════
-   결과 카드
-══════════════════════════════════════════════ */
-.result-card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.04);overflow:hidden;}
-
-/* 결과 헤더 */
-.res-header{padding:11px 20px;background:var(--light);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
-.st{display:flex;align-items:center;gap:5px;}
-.st-l{font-size:11.5px;color:var(--muted);}
-.st-v{font-size:13px;font-weight:700;}
-.st-sep{width:1px;height:15px;background:var(--border);}
-
-/* 탭 */
-.tab-row{padding:0 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0;background:#fff;}
-.tab-btn{padding:10px 18px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);font-family:inherit;transition:.15s;border-bottom:2.5px solid transparent;margin-bottom:-1px;}
-.tab-btn:hover{color:var(--navy);}
-.tab-btn.active{color:var(--blue);font-weight:700;border-bottom-color:var(--blue);}
-
-/* 범례 */
-.legend-row{padding:8px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;}
-.leg{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);}
-.leg-sq{width:13px;height:13px;border-radius:3px;flex-shrink:0;}
-.leg-hint{margin-left:auto;font-size:11px;color:#94A3B8;}
-
-/* 테이블 */
-.table-wrap{overflow:auto;max-height:60vh;}
-table{border-collapse:collapse;font-size:13px;width:100%;}
-thead th{background:#F4F7FB;padding:9px 11px;border-bottom:2px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:10;text-align:center;font-size:12px;color:var(--navy);}
-thead th:first-child{text-align:left;min-width:160px;max-width:180px;position:sticky;left:0;z-index:20;background:#EBF1FA;}
-thead th.my-col{background:#FFF0F3;color:var(--pink2);}
-tbody tr{cursor:pointer;}
-tbody tr:hover td{filter:brightness(.96);}
-tbody tr.row-exp td{box-shadow:inset 0 0 0 2px var(--cyan);}
-tbody td{padding:8px 11px;border-bottom:1px solid #EEF2F7;border-right:1px solid #EEF2F7;text-align:center;vertical-align:middle;}
-tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-size:12px;position:sticky;left:0;z-index:5;border-right:2px solid var(--border);min-width:160px;max-width:180px;white-space:normal;word-break:keep-all;line-height:1.4;}
-.item-name{display:block;word-break:keep-all;}
-.edi-tag{display:block;font-size:10.5px;color:#94A3B8;font-weight:400;margin-top:3px;letter-spacing:0.2px;}
-.pc{font-weight:700;font-size:13px;}
-.my-c{outline:2px solid var(--pink);outline-offset:-2px;}
-.nd{color:#CBD5E1;font-size:11px;}
-
-/* 인라인 차트 행 */
-.chart-row td{background:#F6FAFF!important;filter:none!important;padding:18px 22px!important;cursor:default;}
-.ci{display:flex;gap:20px;align-items:flex-start;}
-.ci-canvas{flex:1;position:relative;}
-.ci-side{width:195px;flex-shrink:0;background:#fff;border:1px solid var(--border);border-radius:10px;padding:13px;}
-.ci-side h4{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--border);word-break:keep-all;line-height:1.4;}
-.ss{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px dashed #F1F5F9;}
-.ss:last-of-type{border:none;margin-bottom:9px;}
-.ss-l{color:var(--muted);}
-.ss-v{font-weight:700;}
-.rk-t{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
-.ri{display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid #F5F7FA;}
-.rn{width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;}
-.ri-name{font-size:11.5px;flex:1;}
-.ri-price{font-size:11px;color:var(--muted);}
-
-/* 차트 탭 - 그리드 차트 */
-.chart-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding:20px;}
-.chart-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;overflow:hidden;}
-.chart-card-title{font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.chart-card-sub{font-size:11px;color:var(--muted);margin-bottom:10px;}
-.chart-card canvas{display:block;}
-
-/* 빈 상태 */
-.empty{text-align:center;padding:55px 20px;color:#94A3B8;}
-.empty-icon{font-size:38px;margin-bottom:12px;}
-.empty-text{font-size:14px;line-height:1.9;}
-
-/* 푸터 */
-.footer{margin-top:28px;padding:18px 24px;text-align:center;border-top:1px solid var(--border);background:var(--card);font-size:12px;color:var(--muted);line-height:1.9;}
-.footer a{color:var(--cyan);text-decoration:none;}
-.footer strong{color:var(--navy);}
-
-::-webkit-scrollbar{width:5px;height:5px;}
-::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px;}
-
-@media(max-width:768px){
-  /* 사이드바 → 드로어로 전환 */
-  .layout-sidebar{position:relative;}
-  .sidebar{
-    position:fixed;top:0;left:0;height:100vh;
-    transform:translateX(-100%);transition:transform .25s ease;
-    z-index:500;box-shadow:4px 0 20px rgba(0,0,0,0.3);
-  }
-  .sidebar.drawer-open{transform:translateX(0);}
-
-  /* 드로어 오버레이 */
-  .drawer-overlay{
-    display:none;position:fixed;inset:0;
-    background:rgba(0,0,0,0.45);z-index:499;
-  }
-  .drawer-overlay.show{display:block;}
-
-  /* 모바일 메뉴 버튼 */
-  .mobile-menu-btn{
-    display:flex;align-items:center;justify-content:center;
-    width:36px;height:36px;
-    background:var(--navy);color:#fff;
-    border:none;border-radius:8px;
-    font-size:18px;cursor:pointer;flex-shrink:0;
-  }
-
-  /* 탑바 */
-  .topbar{padding:10px 14px;flex-wrap:wrap;gap:6px;}
-  .topbar-left{min-width:0;flex:1;}
-  .topbar-title{font-size:13px;}
-  .topbar-meta{font-size:10.5px;}
-  .topbar-right{gap:6px;}
-  .data-badge{font-size:11px;padding:4px 10px;}
-  .layout-toggle{display:none;} /* 모바일에서 레이아웃 토글 숨김 */
-
-  /* 콘텐츠 */
-  .content{padding:12px 14px;}
-
-  /* 검색 카드 */
-  .search-card{padding:12px 14px;}
-  .search-card-title{font-size:11px;}
-  .search-input{font-size:13px;padding:9px 12px;}
-
-  /* 테이블 */
-  .table-wrap{max-height:55vh;}
-  table{font-size:12px;}
-  thead th{padding:7px 8px;font-size:11px;}
-  tbody td{padding:6px 8px;}
-  tbody td:first-child{min-width:120px;max-width:140px;font-size:11.5px;}
-  .cell-price{font-size:12px;}
-  .cell-date{font-size:9.5px;}
-
-  /* 차트 */
-  .ci{flex-direction:column;}
-  .ci-side{width:100%;}
-  .chart-grid{grid-template-columns:1fr;}
-
-  /* 결과 헤더 */
-  .res-header{padding:8px 14px;gap:10px;}
-  .st-v{font-size:12px;}
-  .st-l{font-size:11px;}
-
-  /* 어드민 모달 */
-  .admin-modal{width:95vw;}
-
-  /* 드롭다운 */
-  .dropdown{max-height:280px;}
-}
-
-/* ── 관리자 버튼 ── */
-.admin-lock-btn{padding:6px 10px;border:1px solid var(--border);background:transparent;border-radius:8px;cursor:pointer;font-size:14px;color:var(--muted);transition:.15s;}
-.admin-lock-btn:hover{background:var(--light);color:var(--navy);}
-.admin-lock-btn.unlocked{border-color:#F59E0B;color:#D97706;background:#FFFBEB;}
-
-/* ── 관리자 모달 오버레이 ── */
-.admin-overlay{position:fixed;inset:0;background:rgba(15,39,68,.6);backdrop-filter:blur(3px);z-index:1000;display:flex;align-items:center;justify-content:center;}
-.admin-modal{background:#fff;border-radius:16px;width:540px;max-width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);}
-.admin-modal-head{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.admin-modal-head h2{font-size:16px;font-weight:700;color:var(--navy);}
-.admin-close{width:30px;height:30px;border:none;background:var(--light);border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--muted);}
-.admin-close:hover{background:#FFE4E8;color:var(--pink);}
-.admin-modal-body{padding:20px 24px;overflow-y:auto;flex:1;}
-
-/* 비밀번호 화면 */
-.admin-pw-wrap{max-width:320px;margin:0 auto;text-align:center;padding:20px 0;}
-.admin-pw-wrap p{font-size:13px;color:var(--muted);margin-bottom:16px;}
-.admin-pw-input{width:100%;padding:11px 16px;border:2px solid var(--border);border-radius:9px;font-size:15px;text-align:center;letter-spacing:4px;font-family:inherit;outline:none;transition:border .2s;}
-.admin-pw-input:focus{border-color:var(--cyan);}
-.admin-pw-btn{margin-top:12px;width:100%;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;}
-.admin-pw-btn:hover{background:#2471A3;}
-.admin-pw-err{color:var(--pink);font-size:12px;margin-top:8px;}
-
-/* 관리자 본 화면 */
-.admin-token-row{display:flex;gap:8px;margin-bottom:18px;align-items:center;}
-.admin-token-input{flex:1;padding:9px 14px;border:2px solid var(--border);border-radius:8px;font-size:12.5px;font-family:monospace;outline:none;transition:border .2s;}
-.admin-token-input:focus{border-color:var(--cyan);}
-.admin-token-save{padding:9px 16px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
-.admin-token-save:hover{background:var(--navy2);}
-.admin-token-hint{font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7;}
-.admin-token-hint a{color:var(--blue);}
-
-.admin-section-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;}
-.admin-hosp-grid{display:flex;flex-direction:column;gap:5px;max-height:320px;overflow-y:auto;}
-.admin-hosp-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--light);}
-.admin-hosp-name{flex:1;font-size:13px;font-weight:600;}
-.admin-hosp-name.my{color:var(--pink2);font-weight:700;}
-.admin-hosp-meta{font-size:11px;color:var(--muted);text-align:right;line-height:1.5;}
-.admin-run-btn{padding:5px 14px;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--blue);color:#fff;white-space:nowrap;transition:.15s;}
-.admin-run-btn:hover:not(:disabled){background:#2471A3;}
-.admin-run-btn:disabled{opacity:.4;cursor:not-allowed;}
-.admin-run-all{width:100%;padding:11px;background:var(--pink);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:14px;transition:.15s;}
-.admin-run-all:hover:not(:disabled){background:var(--pink2);}
-.admin-run-all:disabled{opacity:.4;cursor:not-allowed;}
-.admin-status-log{margin-top:14px;padding:10px 14px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.8;min-height:40px;max-height:120px;overflow-y:auto;}
-.log-ok{color:#1a7a4a;font-weight:700;}
-.log-err{color:var(--pink);font-weight:700;}
-.log-run{color:var(--blue);}
-.admin-notice{padding:10px 14px;background:#FFF3CD;border:1px solid #F0D060;border-radius:8px;font-size:12px;color:#856404;line-height:1.7;margin-bottom:16px;}
-</style>
+        .search-area { background: #f8fafc; padding: 15px; border-radius: 5px; margin-bottom: 20px; display: flex; gap: 10px; }
+        input[type="text"] { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; flex: 1; outline: none; }
+        
+        .main-layout { display: flex; gap: 20px; }
+        .tree-view { width: 300px; border: 1px solid #ddd; background: #fafafa; padding: 15px; overflow-y: auto; max-height: 600px; }
+        .category-item { font-weight: bold; cursor: pointer; margin-bottom: 10px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .sub-category { padding-left: 15px; font-weight: normal; font-size: 12px; color: #555; display: none; margin-top: 5px; }
+        .sub-item { padding: 5px 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px dashed #eee; }
+        
+        .result-view { flex: 1; overflow-y: auto; max-height: 600px; border: 1px solid #ddd; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid #e0e0e0; padding: 12px 10px; text-align: center; }
+        th { background: #f1f5f9; position: sticky; top: 0; color: #1e293b; z-index: 10; }
+        .price { color: #d9534f; font-weight: bold; font-size: 15px; }
+        .date-col { color: #64748b; font-size: 12px; }
+        
+        .footer { text-align: center; margin-top: 40px; padding-top: 25px; border-top: 2px dashed #e2e8f0; }
+    </style>
 </head>
 <body>
 
-<!-- ══ SIDEBAR 레이아웃 ══════════════════════ -->
-<div id="layoutSidebar" class="layout-sidebar">
+<div class="container">
+    <div class="header-title">🌳 상급종합병원 비급여 조회기 [단일 V2.0]</div>
 
-  <!-- 드로어 오버레이 (모바일) -->
-  <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
-
-  <!-- 사이드바 -->
-  <aside class="sidebar" id="sidebarEl">
-    <div class="sb-logo">
-      <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V5.2</p>
+    <div class="counter-badge">
+        <img src="https://hits.sh/real4goon.github.io/hallym-dashboard-single.svg?label=%EB%88%84%EC%A0%81%EC%A1%B0%ED%9A%8C&color=004b87&labelColor=f15c75" alt="조회수"/>
     </div>
-    <div class="sb-section">
-      <div class="sb-section-title">비교 병원 선택</div>
-      <div class="sb-row">
-        <button onclick="selectAll('sb',true)">전체 선택</button>
-        <button onclick="selectAll('sb',false)">전체 해제</button>
-      </div>
-      <button class="load-btn-sb" id="loadBtnSb" onclick="loadSelectedData()">🚀 선택 병원 데이터 로드</button>
-      <div class="sidebar-status sb-status" id="sbStatus"></div>
-      <div id="hospListSb" class="hosp-list-sb"></div>
-    </div>
-  </aside>
 
-  <!-- 메인 (사이드바 모드) -->
-  <div class="main-sb">
-    <!-- 탑바 -->
-    <div class="topbar">
-      <button class="mobile-menu-btn" onclick="openDrawer()">☰</button>
-      <div class="topbar-left">
-        <div class="topbar-title">상급종합병원 비급여 단가 비교</div>
-        <div class="topbar-meta" id="topMeta">병원을 선택하고 데이터를 로드해주세요.</div>
-      </div>
-      <div class="topbar-right">
-        <div class="data-badge" id="dataBadge">데이터 로딩 중...</div>
-        <div class="layout-toggle">
-          <button class="lt-btn active" id="ltSb" onclick="setLayout('sidebar')">☰ 목록</button>
-          <button class="lt-btn"        id="ltTop" onclick="setLayout('top')">▤ 상단</button>
+    <div id="corsManualBox" class="manual-box">
+        <strong>🚨 데이터 연동 실패!</strong>
+        원내 방화벽으로 인해 <a href="https://chrome.google.com/webstore/detail/allow-cors-access-control/lhobafahddgcelffkeicbaginigeejlf" target="_blank">CORS 확장 프로그램</a> 설치 및 활성화가 필요합니다.
+    </div>
+
+    <div class="api-section">
+        <div class="hospital-control">
+            <strong>📍 대상 병원 선택:</strong>
+            <select id="hospitalSelect" onchange="checkCacheInfo()"></select>
+            <span class="save-notice">※ 500건씩 분할 수집하며, 페이지당 1초의 대기시간이 발생합니다.</span>
         </div>
-        <button class="admin-lock-btn" onclick="openAdminPanel()" title="관리자 패널">🔒</button>
-      </div>
+        
+        <div id="updateInfo" class="update-info">저장된 데이터 없음</div>
+        
+        <button id="syncBtn" onclick="fetchApiData()">🚀 실시간 데이터 로드</button>
+        
+        <span id="apiStatus">대기 중...</span>
     </div>
-    <!-- 콘텐츠 -->
-    <div class="content" id="contentSb">
-      <div id="searchCardSb"></div>
-      <div class="result-card"><div id="resultAreaSb" class="empty"><div class="empty-icon">🏥</div><div class="empty-text">좌측에서 병원을 선택하고<br><b>[데이터 로드]</b> 버튼을 눌러주세요.</div></div></div>
-    </div>
-    <!-- 푸터 -->
-    <div class="footer">
-      <strong>한림대학교성심병원 원무팀 김영선 대리</strong> 작성 &nbsp;|&nbsp;
-      문의: <a href="mailto:4goon@hallym.or.kr">4goon@hallym.or.kr</a><br>
-      <span style="font-size:11px;">데이터 출처: 건강보험심사평가원 비급여 진료비 공개 API</span>
-    </div>
-  </div>
-</div>
 
-<!-- ══ TOPBAR 레이아웃 ═══════════════════════ -->
-<div id="layoutTop" class="layout-top" style="display:none;">
-
-  <!-- 병원 스트립 -->
-  <div class="hosp-strip">
-    <div class="hosp-strip-header">
-      <span class="hosp-strip-title">비교 병원 선택</span>
-      <div class="strip-actions">
-        <button class="strip-btn" onclick="selectAll('top',true)">전체 선택</button>
-        <button class="strip-btn" onclick="selectAll('top',false)">전체 해제</button>
-        <button class="load-btn-top" id="loadBtnTop" onclick="loadSelectedData()">🚀 데이터 로드</button>
-      </div>
+    <div class="search-area">
+        <input type="text" id="searchInput" placeholder="결과 내 검색 (EDI 코드 또는 명칭 입력)">
+        <button onclick="searchData()">검색</button>
+        <button class="btn-excel" onclick="exportToExcel()">📊 엑셀 다운로드</button>
     </div>
-    <div id="hospChipsTop" class="hosp-chips-wrap"></div>
-    <div class="strip-status" id="topStatus"></div>
-  </div>
 
-  <div class="main-top">
-    <!-- 탑바 -->
-    <div class="topbar">
-      <div class="topbar-left">
-        <div class="topbar-title">상급종합병원 비급여 단가 비교</div>
-        <div class="topbar-meta" id="topMeta2">병원을 선택하고 데이터를 로드해주세요.</div>
-      </div>
-      <div class="topbar-right">
-        <div class="data-badge" id="dataBadge2">데이터 로딩 중...</div>
-        <div class="layout-toggle">
-          <button class="lt-btn"        id="ltSb2"  onclick="setLayout('sidebar')">☰ 목록</button>
-          <button class="lt-btn active" id="ltTop2" onclick="setLayout('top')">▤ 상단</button>
+    <div class="main-layout">
+        <div class="tree-view" id="treeView">
+            <div style="font-weight:bold; border-bottom:2px solid #cbd5e1; margin-bottom:10px; padding-bottom:8px;">🗂️ 가상 카테고리 트리</div>
+            <div id="treeContent" style="color:#94a3b8; font-size:13px;">병원을 선택하고 데이터를 로드해 주세요.</div>
         </div>
-      </div>
+        <div class="result-view">
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">코드(EDI)</th>
+                        <th style="width: 45%;">비급여 항목명</th>
+                        <th style="width: 25%;">제출 비용(단가)</th>
+                        <th style="width: 15%;">최종 등록일자</th>
+                    </tr>
+                </thead>
+                <tbody id="resultBody">
+                    <tr><td colspan="4" style="text-align:center; padding: 60px; color:#94a3b8;">조회 버튼을 누르면 실시간 데이터를 표시합니다.</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
-    <!-- 콘텐츠 -->
-    <div class="content" id="contentTop">
-      <div id="searchCardTop"></div>
-      <div class="result-card"><div id="resultAreaTop" class="empty"><div class="empty-icon">🏥</div><div class="empty-text">위에서 병원을 선택하고<br><b>[데이터 로드]</b> 버튼을 눌러주세요.</div></div></div>
-    </div>
-    <!-- 푸터 -->
+
     <div class="footer">
-      <strong>한림대학교성심병원 원무팀 김영선 대리</strong> 작성 &nbsp;|&nbsp;
-      문의: <a href="mailto:4goon@hallym.or.kr">4goon@hallym.or.kr</a><br>
-      <span style="font-size:11px;">데이터 출처: 건강보험심사평가원 비급여 진료비 공개 API</span>
+        <div class="copyright">Copyright © 2026. 한림대학교성심병원 원무팀 김영선 대리. All rights reserved.</div>
+        <div class="contact-email">✉️ 문의: <a href="mailto:4goon@hallym.or.kr" style="color:#004b87; font-weight:bold; text-decoration:none;">4goon@hallym.or.kr</a></div>
+        <a href="https://real4goon.github.io/hallym-dashboard/" target="_blank" style="display: inline-block; padding: 10px 20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:5px; color:#0f172a; text-decoration:none; font-weight:bold;">📊 [통합] 다수 병원 전체 비교 대시보드 바로가기</a>
     </div>
-  </div>
 </div>
 
 <script>
-/* ══════════════════════════════════════════════
-   설정
-══════════════════════════════════════════════ */
-const MY_HOSP  = "한림성심병원";
-const DATA_DIR = "data/";
-const MAX_ROWS = 80;
-
-// ── 관리자 설정 (GitHub 배포 후 본인 정보로 수정) ──
-const GITHUB_OWNER = "여기에_깃허브_계정명";   // 예: "real4goon"
-const GITHUB_REPO  = "여기에_리포지토리명";    // 예: "nhs-dashboard"
-const ADMIN_PW     = "hallym2026";             // 관리자 비밀번호 (자유롭게 변경)
-
-/* ══════════════════════════════════════════════
-   상태
-══════════════════════════════════════════════ */
-let metadata      = {};
-let loadedData    = [];
-let fuse          = null;
-let allItems      = [];
-let selectedNames = new Set();
-let ddItems       = [];
-let ddSelected    = new Set();
-let expandedItem  = null;
-let activeCharts  = {};          // key: canvasId → Chart
-let selectedHosps = [];
-let currentLayout = 'sidebar';   // 'sidebar' | 'top'
-let currentTab    = 'table';     // 'table' | 'chart'
-
-/* ══════════════════════════════════════════════
-   초기화
-══════════════════════════════════════════════ */
-window.addEventListener('DOMContentLoaded', async () => {
-  await loadMetadata();
-  buildSearchCards();
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.search-wrap')) closeDropdown();
-  });
-});
-
-/* ══════════════════════════════════════════════
-   레이아웃 토글
-══════════════════════════════════════════════ */
-function setLayout(mode) {
-  currentLayout = mode;
-  document.getElementById('layoutSidebar').style.display = mode === 'sidebar' ? 'flex'  : 'none';
-  document.getElementById('layoutTop')    .style.display = mode === 'top'     ? 'flex'  : 'none';
-  // 활성 버튼 스타일
-  ['ltSb','ltTop','ltSb2','ltTop2'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.classList.toggle('active',
-      (id.startsWith('ltSb') && mode==='sidebar') ||
-      (id.startsWith('ltTop') && mode==='top'));
-  });
-  // 검색 카드 재렌더
-  buildSearchCards();
-  // 로드된 데이터 있으면 결과도 재렌더
-  if (selectedNames.size > 0) renderTable();
-}
-
-/* ══════════════════════════════════════════════
-   메타데이터 로드
-══════════════════════════════════════════════ */
-async function loadMetadata() {
-  try {
-    const r = await fetch(DATA_DIR + 'metadata.json');
-    if (!r.ok) throw new Error();
-    metadata = await r.json();
-    const dates = Object.values(metadata).map(m => m.updated).filter(Boolean).sort().reverse();
-    const badge = dates.length ? `최근 수집: ${dates[0]}` : '수집 데이터 있음';
-    ['dataBadge','dataBadge2'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = badge;
-    });
-    renderHospLists();
-  } catch {
-    const err = `<div style="padding:10px 6px;color:#F87171;font-size:12px;line-height:1.9;">⚠ data/metadata.json 없음<br>1. python collect_data.py<br>2. python -m http.server 8000</div>`;
-    document.getElementById('hospListSb').innerHTML = err;
-    ['dataBadge','dataBadge2'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='데이터 없음'; });
-  }
-}
-
-function sortedHospNames() {
-  const names = Object.keys(metadata);
-  return [ ...names.filter(n => n===MY_HOSP), ...names.filter(n => n!==MY_HOSP) ];
-}
-
-const DEFAULT_ON = new Set([MY_HOSP,"서울대병원","삼성서울병원","서울아산병원","세브란스병원"]);
-
-function renderHospLists() {
-  const sorted = sortedHospNames();
-
-  // 사이드바 목록
-  document.getElementById('hospListSb').innerHTML = sorted.map(name => {
-    const info  = metadata[name]||{};
-    const isMy  = name===MY_HOSP, isOn = DEFAULT_ON.has(name);
-    const date  = info.updated ? info.updated.slice(0,10) : '미수집';
-    return `<label class="hi ${isMy?'my':''} ${isOn?'on':''}" onclick="toggleHi(this,'sb')">
-      <input type="checkbox" value="${name}" ${isOn?'checked':''}>
-      <span class="h-dot"></span>
-      <span class="h-name">${name}${isMy?' ★':''}</span>
-      <span class="h-info">
-        <span class="h-cnt">${(info.count||0).toLocaleString()}건</span>
-        <span class="h-date">${date}</span>
-      </span>
-    </label>`;
-  }).join('');
-
-  // 상단 칩 목록
-  document.getElementById('hospChipsTop').innerHTML = sorted.map(name => {
-    const info  = metadata[name]||{};
-    const isMy  = name===MY_HOSP, isOn = DEFAULT_ON.has(name);
-    const date  = info.updated ? info.updated.slice(0,10) : '미수집';
-    return `<label class="hc ${isMy?'my':''} ${isOn?'on':''}" onclick="toggleHi(this,'top')">
-      <input type="checkbox" value="${name}" ${isOn?'checked':''}>
-      <span class="hc-dot"></span>
-      <span class="hc-name">${name}${isMy?' ★':''}</span>
-      <span class="hc-meta">
-        <span class="hc-cnt">${(info.count||0).toLocaleString()}</span>
-        <span class="hc-date">${date}</span>
-      </span>
-    </label>`;
-  }).join('');
-}
-
-function toggleHi(label, mode) {
-  const cb = label.querySelector('input');
-  cb.checked = !cb.checked;
-  label.classList.toggle('on', cb.checked);
-  // 반대 레이아웃도 동기화
-  const other = mode==='sb' ? 'top' : 'sb';
-  const val   = cb.value;
-  const otherLabel = document.querySelector(
-    `#${other==='top'?'hospChipsTop':'hospListSb'} [value="${CSS.escape(val)}"]`
-  )?.closest('label');
-  if (otherLabel) {
-    otherLabel.querySelector('input').checked = cb.checked;
-    otherLabel.classList.toggle('on', cb.checked);
-  }
-}
-function selectAll(mode, v) {
-  const sbSel  = document.querySelectorAll('#hospListSb .hi input');
-  const topSel = document.querySelectorAll('#hospChipsTop .hc input');
-  sbSel .forEach(cb => { cb.checked=v; cb.closest('label').classList.toggle('on',v); });
-  topSel.forEach(cb => { cb.checked=v; cb.closest('label').classList.toggle('on',v); });
-}
-function getCheckedHosps() {
-  const cbs = document.querySelectorAll('#hospListSb .hi input:checked, #hospChipsTop .hc input:checked');
-  return [...new Set([...cbs].map(c => c.value))];
-}
-
-/* ══════════════════════════════════════════════
-   검색 카드 빌드
-══════════════════════════════════════════════ */
-function buildSearchCards() {
-  const html = `
-    <div class="search-card">
-      <div class="search-card-title">🔍 비급여 항목 검색 — 검색어 입력 후 항목 선택 → [이 항목들 비교] 클릭 &nbsp;<span style="font-weight:400;color:#94A3B8;">※ 스페이스바로 AND 검색 가능 (예: MRI 근골격계)</span></div>
-      <div class="search-row">
-        <div class="search-wrap">
-          <input class="search-input" id="searchInput"
-                 placeholder="예: MRI &nbsp;→&nbsp; MRI 근골격계 (AND 검색)"
-                 autocomplete="off" ${loadedData.length?'':'disabled'}
-                 oninput="onSearchInput(event)" onclick="event.stopPropagation()">
-          <div class="dropdown" id="dropdown">
-            <div class="dd-head" onclick="event.stopPropagation()">
-              <div style="display:flex;gap:6px;">
-                <button class="dd-sa" onclick="event.stopPropagation();ddSelectAll(true)">전체 선택</button>
-                <button class="dd-sa" style="color:var(--muted);" onclick="event.stopPropagation();ddSelectAll(false)">전체 해제</button>
-              </div>
-              <span id="ddCount">0개 항목</span>
-            </div>
-            <div class="dd-list" id="ddList" onclick="event.stopPropagation()"></div>
-            <div class="dd-foot" onclick="event.stopPropagation()">
-              <span class="dd-cnt" id="ddSelCnt">0개 선택됨</span>
-              <button class="dd-ok" onclick="event.stopPropagation();confirmSelection()">✔ 이 항목들 비교</button>
-            </div>
-          </div>
-        </div>
-        <button class="btn btn-excel" id="excelBtn" onclick="exportExcel()"
-          ${selectedNames.size?'':'disabled'} style="${selectedNames.size?'':'display:none'}">📊 엑셀 저장</button>
-      </div>
-      <div class="sel-chips" id="selectedChips"></div>
-      <div id="chipFilterWrap" style="display:none; margin-top:8px;">
-        <input class="search-input" id="chipFilter" style="font-size:12px;padding:7px 12px;"
-               placeholder="선택된 항목 내에서 필터 (예: 갑상선)"
-               oninput="filterChips()" autocomplete="off">
-      </div>
-    </div>`;
-
-  if (currentLayout==='sidebar') {
-    document.getElementById('searchCardSb').innerHTML = html;
-  } else {
-    document.getElementById('searchCardTop').innerHTML = html;
-  }
-  renderChips();
-}
-
-/* ══════════════════════════════════════════════
-   데이터 로드
-══════════════════════════════════════════════ */
-async function loadSelectedData() {
-  const checked = getCheckedHosps();
-  if (!checked.length) { alert('병원을 선택해주세요.'); return; }
-
-  ['loadBtnSb','loadBtnTop'].forEach(id => {
-    const el=document.getElementById(id); if(el) el.disabled=true;
-  });
-  const setStatus = t => {
-    ['sbStatus','topStatus'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=t; });
-  };
-
-  loadedData = []; selectedNames.clear(); renderChips(); resetResult();
-  setStatus('로딩 중...');
-
-  for (let i=0; i<checked.length; i++) {
-    const name = checked[i];
-    setStatus(`[${i+1}/${checked.length}] ${name}...`);
-    try {
-      const info = metadata[name]; if (!info) continue;
-      const r = await fetch(DATA_DIR + info.filename);
-      if (!r.ok) throw new Error();
-      loadedData.push(...await r.json());
-    } catch { console.warn(`${name} 로드 실패`); }
-  }
-
-  selectedHosps = [
-    ...checked.filter(n => n===MY_HOSP),
-    ...checked.filter(n => n!==MY_HOSP)
-  ];
-
-  if (!loadedData.length) {
-    setStatus('❌ 데이터 없음. collect_data.py 먼저 실행하세요.');
-    ['loadBtnSb','loadBtnTop'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=false; });
-    return;
-  }
-
-  const seen = new Map();
-  loadedData.forEach(d => { if (!seen.has(d.itemName)) seen.set(d.itemName, d.ediCode); });
-  allItems = [...seen.entries()].map(([n,e])=>({name:n,ediCode:e})).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
-  fuse = new Fuse(allItems, {keys:['name','ediCode'],threshold:.35,minMatchCharLength:1});
-
-  const msg = `✅ ${loadedData.length.toLocaleString()}건 / ${allItems.length.toLocaleString()}개 항목`;
-  setStatus(msg);
-  ['topMeta','topMeta2'].forEach(id => {
-    const el=document.getElementById(id);
-    if(el) el.textContent=`${selectedHosps.length}개 병원 로드 완료 · ${allItems.length.toLocaleString()}개 항목`;
-  });
-
-  ['loadBtnSb','loadBtnTop'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=false; });
-
-  buildSearchCards();
-  closeDrawer();
-  getResultArea().innerHTML = `
-    <div class="empty">
-      <div class="empty-icon">✅</div>
-      <div class="empty-text"><b>${allItems.length.toLocaleString()}개</b> 항목 로드 완료!<br>위 검색창에서 항목명을 입력 후 선택해주세요.</div>
-    </div>`;
-}
-
-/* ══════════════════════════════════════════════
-   검색 드롭다운
-══════════════════════════════════════════════ */
-function onSearchInput(e) {
-  e.stopPropagation();
-  const raw = document.getElementById('searchInput').value.trim();
-  if (!raw) { closeDropdown(); return; }
-
-  // 스페이스 구분 AND 검색
-  const keywords = raw.split(/\s+/).filter(Boolean);
-
-  if (keywords.length === 1) {
-    // 단일 키워드: 기존 퍼지 검색
-    ddItems = fuse ? fuse.search(keywords[0], {limit:100}).map(r=>r.item) : allItems.slice(0,100);
-  } else {
-    // 복수 키워드: 각 키워드를 퍼지 검색 후 AND 교집합
-    let result = allItems;
-    keywords.forEach(kw => {
-      const matched = new Set(
-        fuse ? fuse.search(kw, {limit:300}).map(r=>r.item.name) : allItems.map(i=>i.name)
-      );
-      result = result.filter(item => matched.has(item.name));
-    });
-    ddItems = result.slice(0, 100);
-  }
-
-  // 이미 선택된 항목 상단에 표시
-  const selSet = new Set([...selectedNames]);
-  const selected   = ddItems.filter(i => selSet.has(i.name));
-  const unselected = ddItems.filter(i => !selSet.has(i.name));
-  ddItems = [...selected, ...unselected];
-
-  renderDropdown();
-  openDropdown();
-}
-function renderDropdown() {
-  const cnt = document.getElementById('ddCount');
-  const lst = document.getElementById('ddList');
-  if (!cnt||!lst) return;
-  cnt.textContent = `${ddItems.length}개 항목`;
-  lst.innerHTML = ddItems.map((item,idx) => {
-    const chk = ddSelected.has(item.name);
-    return `<div class="ddi ${chk?'sel':''}" onclick="event.stopPropagation();toggleDdItem(${idx})">
-      <input type="checkbox" ${chk?'checked':''}>
-      <span class="ddi-name">${escH(truncate(item.name,36))}</span>
-      <span class="ddi-edi">${escH(item.ediCode)}</span>
-    </div>`;
-  }).join('');
-  updateDdCnt();
-}
-function toggleDdItem(idx) {
-  const item = ddItems[idx]; if(!item) return;
-  if (ddSelected.has(item.name)) ddSelected.delete(item.name);
-  else                            ddSelected.add(item.name);
-  renderDropdown();
-}
-function ddSelectAll(v) {
-  if (v === undefined) {
-    // 기존 토글 방식 (하위 호환)
-    const allSel = ddItems.length>0 && ddItems.every(i=>ddSelected.has(i.name));
-    ddItems.forEach(item => allSel ? ddSelected.delete(item.name) : ddSelected.add(item.name));
-  } else if (v) {
-    ddItems.forEach(item => ddSelected.add(item.name));
-  } else {
-    ddItems.forEach(item => ddSelected.delete(item.name));
-  }
-  renderDropdown();
-}
-function updateDdCnt() {
-  const el = document.getElementById('ddSelCnt'); if(el) el.textContent=`${ddSelected.size}개 선택됨`;
-}
-function openDropdown()  { const d=document.getElementById('dropdown'); if(d) d.classList.add('open'); }
-function closeDropdown() { const d=document.getElementById('dropdown'); if(d) d.classList.remove('open'); }
-function confirmSelection() {
-  if (ddSelected.size===0) {
-    ddItems.forEach(item=>selectedNames.add(item.name));
-  } else {
-    ddSelected.forEach(n=>selectedNames.add(n));
-  }
-  ddSelected.clear();
-  closeDropdown();
-  const inp = document.getElementById('searchInput'); if(inp) inp.value='';
-  renderChips();
-  if (selectedNames.size>0) renderTable();
-}
-
-/* ══════════════════════════════════════════════
-   칩
-══════════════════════════════════════════════ */
-function renderChips(filterKw) {
-  const wrap = document.getElementById('selectedChips'); if(!wrap) return;
-  const arr  = [...selectedNames];
-  if (!arr.length) {
-    wrap.innerHTML='';
-    const fw=document.getElementById('chipFilterWrap'); if(fw) fw.style.display='none';
-    return;
-  }
-  const kw = (filterKw !== undefined ? filterKw : document.getElementById('chipFilter')?.value||'').trim().toLowerCase();
-  const visible = kw ? arr.filter(n=>n.toLowerCase().includes(kw)) : arr;
-  const hidden  = arr.length - visible.length;
-  wrap.innerHTML =
-    visible.map(name=>`
-      <div class="chip">
-        <span title="${escH(name)}">${escH(truncate(name,22))}</span>
-        <span class="chip-del" onclick="removeChip('${escJs(name)}')">×</span>
-      </div>`).join('') +
-    (hidden>0?`<div class="chip" style="background:#F1F5F9;border-color:#CBD5E1;color:var(--muted);">+${hidden}개 숨김</div>`:'') +
-    `<div class="chip chip-clear" onclick="clearChips()"><span>전체 지우기</span><span class="chip-del">×</span></div>`;
-  const fw=document.getElementById('chipFilterWrap'); if(fw) fw.style.display=arr.length>=3?'block':'none';
-  const eb=document.getElementById('excelBtn'); if(eb){ eb.style.display='inline-block'; eb.disabled=false; }
-}
-function filterChips() {
-  const kw = document.getElementById('chipFilter')?.value||'';
-  renderChips(kw);
-  const filtered = kw.trim() ? [...selectedNames].filter(n=>n.toLowerCase().includes(kw.toLowerCase())) : [...selectedNames];
-  if (filtered.length>0) renderTableWithNames(filtered);
-}
-function removeChip(name) { selectedNames.delete(name); renderChips(); selectedNames.size>0?renderTable():resetResult(); }
-function clearChips()      { selectedNames.clear(); renderChips(); resetResult(); }
-
-/* ══════════════════════════════════════════════
-   결과 영역 헬퍼
-══════════════════════════════════════════════ */
-function getResultArea() {
-  return currentLayout==='sidebar'
-    ? document.getElementById('resultAreaSb')
-    : document.getElementById('resultAreaTop');
-}
-
-/* ══════════════════════════════════════════════
-   테이블 렌더
-══════════════════════════════════════════════ */
-function renderTable() { renderTableWithNames([...selectedNames]); }
-function renderTableWithNames(names) {
-  if (!names.length) { resetResult(); return; }
-  expandedItem = null;
-  Object.values(activeCharts).forEach(c=>c.destroy()); activeCharts={};
-
-  const display   = names.slice(0,MAX_ROWS);
-  const isLimited = names.length>MAX_ROWS;
-  const allPrices = loadedData.filter(d=>names.includes(d.itemName)&&d.price>0).map(d=>d.price);
-  const minP=allPrices.length?Math.min(...allPrices):0;
-  const maxP=allPrices.length?Math.max(...allPrices):0;
-  const avgP=allPrices.length?Math.round(allPrices.reduce((a,b)=>a+b,0)/allPrices.length):0;
-
-  let html=`
-  <div class="res-header">
-    <div class="st"><span class="st-l">선택 항목</span><span class="st-v">${names.length}개</span></div>
-    <div class="st-sep"></div>
-    <div class="st"><span class="st-l">최저가</span><span class="st-v" style="color:#1a7a4a">${minP.toLocaleString()}원</span></div>
-    <div class="st-sep"></div>
-    <div class="st"><span class="st-l">최고가</span><span class="st-v" style="color:var(--pink)">${maxP.toLocaleString()}원</span></div>
-    <div class="st-sep"></div>
-    <div class="st"><span class="st-l">평균가</span><span class="st-v">${avgP.toLocaleString()}원</span></div>
-    ${isLimited?`<div class="st-sep"></div><div class="st"><span style="color:#E67E22;font-size:12px">⚠ ${MAX_ROWS}개만 표시 · 전체는 엑셀</span></div>`:''}
-  </div>
-  <div class="tab-row">
-    <button class="tab-btn ${currentTab==='table'?'active':''}" onclick="switchTab('table')">📋 히트맵 테이블</button>
-    <button class="tab-btn ${currentTab==='chart'?'active':''}" onclick="switchTab('chart')">📊 항목별 차트</button>
-  </div>`;
-
-  if (currentTab==='table') {
-    html += `
-    <div class="legend-row">
-      <div class="leg"><div class="leg-sq" style="background:hsl(120,50%,78%)"></div>최저가</div>
-      <div class="leg"><div class="leg-sq" style="background:hsl(60,50%,78%)"></div>중간가</div>
-      <div class="leg"><div class="leg-sq" style="background:hsl(0,50%,78%)"></div>최고가</div>
-      <div class="leg"><div class="leg-sq" style="background:#EEF2F7;border:1px solid var(--border)"></div>데이터 없음</div>
-      <div class="leg-hint">분홍 테두리 = ${MY_HOSP} &nbsp;|&nbsp; 행 클릭 → 상세 차트</div>
-    </div>
-    <div class="table-wrap"><table>
-    <thead><tr>
-      <th>항목명</th>
-      ${selectedHosps.map(h=>`<th class="${h===MY_HOSP?'my-col':''}" style="min-width:108px">${h===MY_HOSP?'★ ':''}${h}</th>`).join('')}
-    </tr></thead>
-    <tbody id="tBody">`;
-
-    display.forEach(name => {
-      const items   = loadedData.filter(d=>d.itemName===name);
-      const ediCode = items[0]?.ediCode||'-';
-      const priceArr= selectedHosps.map(h=>{ const f=items.find(d=>d.hospName===h); return f?{price:f.price,date:f.date}:null; });
-      const cmap    = buildColorMap(priceArr.filter(p=>p!==null).map(p=>p.price).sort((a,b)=>a-b));
-
-      html+=`<tr data-name="${escH(name)}" onclick="toggleInlineChart(this)">
-        <td title="${escH(name)}">
-          <span class="item-name">${escH(name)}</span>
-          <span class="edi-tag">EDI: ${escH(ediCode)}</span>
-        </td>`;
-      priceArr.forEach((d,i)=>{
-        const isMy=selectedHosps[i]===MY_HOSP;
-        if(d===null) html+=`<td class="${isMy?'my-c':''}"><span class="nd">—</span></td>`;
-        else {
-          const bg=cmap.get(d.price)||'#fff';
-          html+=`<td class="pc ${isMy?'my-c':''}" style="background:${bg}">
-            <div class="cell-price">${d.price.toLocaleString()}원</div>
-            <div class="cell-date">${d.date||'-'}</div>
-          </td>`;
-        }
-      });
-      html+=`</tr>`;
-    });
-    html+=`</tbody></table></div>`;
-
-  } else {
-    // 차트 그리드
-    html+=`<div class="chart-grid" id="chartGrid">`;
-    display.forEach((name,gi)=>{
-      const items = loadedData.filter(d=>d.itemName===name);
-      const chartData = selectedHosps
-        .map(h=>({hosp:h,rec:items.find(d=>d.hospName===h)}))
-        .filter(d=>d.rec)
-        .map(d=>({hosp:d.hosp,price:d.rec.price}))
-        .sort((a,b)=>a.price-b.price);
-      if(!chartData.length) return;
-      const canvasH = Math.max(140, chartData.length*30);
-      html+=`<div class="chart-card">
-        <div class="chart-card-title" title="${escH(name)}">${escH(truncate(name,28))}</div>
-        <div class="chart-card-sub">${items[0]?.ediCode||''} · ${chartData.length}개 병원</div>
-        <div style="position:relative;height:${canvasH}px">
-          <canvas id="gc-${gi}"></canvas>
-        </div>
-      </div>`;
-    });
-    html+=`</div>`;
-  }
-
-  getResultArea().innerHTML = html;
-
-  // 차트 그리드 렌더
-  if (currentTab==='chart') {
-    display.forEach((name,gi)=>{
-      const canvas = document.getElementById(`gc-${gi}`); if(!canvas) return;
-      const items  = loadedData.filter(d=>d.itemName===name);
-      const chartData = selectedHosps
-        .map(h=>({hosp:h,rec:items.find(d=>d.hospName===h)}))
-        .filter(d=>d.rec)
-        .map(d=>({hosp:d.hosp,price:d.rec.price}))
-        .sort((a,b)=>a.price-b.price);
-      if(!chartData.length) return;
-      const n = chartData.length;
-      const colors = chartData.map((d,i)=>{
-        if(d.hosp===MY_HOSP) return '#E8445A';
-        const r=n===1?.5:i/(n-1);
-        return `hsl(${(120*(1-r)).toFixed(0)},55%,48%)`;
-      });
-      activeCharts[`gc-${gi}`] = new Chart(canvas.getContext('2d'),{
-        type:'bar',
-        data:{labels:chartData.map(d=>d.hosp),datasets:[{
-          data:chartData.map(d=>d.price),
-          backgroundColor:colors,
-          borderRadius:4,borderSkipped:false,
-        }]},
-        options:{
-          indexAxis:'y',responsive:true,maintainAspectRatio:false,
-          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x.toLocaleString()}원`}}},
-          scales:{
-            x:{beginAtZero:false,min:Math.max(0,chartData[0].price*.88),
-               ticks:{callback:v=>v>=100000?(v/10000).toFixed(0)+'만':v.toLocaleString(),font:{size:10}},
-               grid:{color:'#EEF2F7'}},
-            y:{ticks:{font:ctx=>({size:11,weight:chartData[ctx.index]?.hosp===MY_HOSP?'bold':'normal'}),
-                      color:ctx=>chartData[ctx.index]?.hosp===MY_HOSP?'#E8445A':'#334155'},
-               grid:{display:false}}
-          }
-        }
-      });
-    });
-  }
-}
-
-function switchTab(tab) {
-  currentTab = tab;
-  renderTable();
-}
-
-/* ══════════════════════════════════════════════
-   인라인 차트 (행 클릭)
-══════════════════════════════════════════════ */
-function toggleInlineChart(tr) {
-  const name = tr.dataset.name;
-  document.getElementById('_cr')?.remove();
-  if (activeCharts['_inline']) { activeCharts['_inline'].destroy(); delete activeCharts['_inline']; }
-  document.querySelectorAll('#tBody tr.row-exp').forEach(r=>r.classList.remove('row-exp'));
-
-  if (expandedItem===name) { expandedItem=null; return; }
-  expandedItem = name;
-  tr.classList.add('row-exp');
-
-  const items = loadedData.filter(d=>d.itemName===name);
-  const chartData = selectedHosps
-    .map(h=>({hosp:h,rec:items.find(d=>d.hospName===h)})).filter(d=>d.rec)
-    .map(d=>({hosp:d.hosp,price:d.rec.price,date:d.rec.date,unit:d.rec.unit}))
-    .sort((a,b)=>a.price-b.price);
-  if(!chartData.length) return;
-
-  const n=chartData.length,minV=chartData[0].price,maxV=chartData[n-1].price,diff=maxV-minV;
-  const pct=minV>0?((diff/minV)*100).toFixed(1):'0';
-  const h=Math.max(180,n*38);
-  const colors=chartData.map((d,i)=>{
-    if(d.hosp===MY_HOSP) return '#E8445A';
-    const r=n===1?.5:i/(n-1);
-    return `hsl(${(120*(1-r)).toFixed(0)},58%,46%)`;
-  });
-  const rankHtml=chartData.slice(0,8).map((d,i)=>`
-    <div class="ri">
-      <div class="rn" style="background:${colors[i]}">${i+1}</div>
-      <div class="ri-name" style="color:${d.hosp===MY_HOSP?'var(--pink)':'var(--text)'};font-weight:${d.hosp===MY_HOSP?700:400}">${escH(d.hosp)}</div>
-      <div class="ri-price">${d.price.toLocaleString()}원</div>
-    </div>`).join('')+(n>8?`<div style="font-size:11px;color:#94A3B8;padding-top:4px">… 외 ${n-8}개 병원</div>`:'');
-
-  const cr=document.createElement('tr'); cr.id='_cr'; cr.className='chart-row';
-  cr.innerHTML=`<td colspan="${selectedHosps.length+1}"><div class="ci">
-    <div class="ci-canvas" style="height:${h}px"><canvas id="_cc"></canvas></div>
-    <div class="ci-side">
-      <h4>${escH(truncate(name,22))}</h4>
-      <div class="ss"><span class="ss-l">최저가</span><span class="ss-v" style="color:#1a7a4a">${minV.toLocaleString()}원</span></div>
-      <div class="ss"><span class="ss-l">최고가</span><span class="ss-v" style="color:var(--pink)">${maxV.toLocaleString()}원</span></div>
-      <div class="ss"><span class="ss-l">격차</span><span class="ss-v">${diff.toLocaleString()}원</span></div>
-      <div class="ss"><span class="ss-l">격차율</span><span class="ss-v">${pct}%</span></div>
-      <div class="ss"><span class="ss-l">비교 병원</span><span class="ss-v">${n}개</span></div>
-      <div class="rk-t" style="margin-top:9px">가격 순위</div>${rankHtml}
-    </div>
-  </div></td>`;
-  tr.insertAdjacentElement('afterend',cr);
-
-  activeCharts['_inline']=new Chart(document.getElementById('_cc').getContext('2d'),{
-    type:'bar',
-    data:{labels:chartData.map(d=>d.hosp),datasets:[{
-      data:chartData.map(d=>d.price),backgroundColor:colors,
-      borderColor:chartData.map(d=>d.hosp===MY_HOSP?'#C0303F':'transparent'),
-      borderWidth:chartData.map(d=>d.hosp===MY_HOSP?2:0),
-      borderRadius:5,borderSkipped:false,
-    }]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{
-        label:c=>` ${c.parsed.x.toLocaleString()}원`,
-        afterLabel:c=>{const d=chartData[c.dataIndex];return d?`  등록일: ${d.date}  단위: ${d.unit}`:''}
-      }}},
-      scales:{
-        x:{beginAtZero:false,min:Math.max(0,minV*.88),
-           ticks:{callback:v=>v>=100000?(v/10000).toFixed(0)+'만':v.toLocaleString(),font:{size:11}},
-           grid:{color:'#EEF2F7'}},
-        y:{ticks:{font:ctx=>({size:12,weight:chartData[ctx.index]?.hosp===MY_HOSP?'bold':'normal'}),
-                  color:ctx=>chartData[ctx.index]?.hosp===MY_HOSP?'#E8445A':'#334155'},
-           grid:{display:false}}
-      }
-    }
-  });
-}
-
-/* ══════════════════════════════════════════════
-   엑셀
-══════════════════════════════════════════════ */
-function exportExcel() {
-  const names=[...selectedNames]; if(!names.length) return;
-  const headers=['항목명','EDI코드','분류',...selectedHosps.flatMap(h=>[`${h}_단가(원)`,`${h}_등록일`])];
-  const rows=[headers];
-  names.forEach(name=>{
-    const items=loadedData.filter(d=>d.itemName===name);
-    const row=[name,items[0]?.ediCode||'-',items[0]?.category||'-'];
-    selectedHosps.forEach(h=>{const f=items.find(d=>d.hospName===h);row.push(f?f.price:'');row.push(f?f.date:'');});
-    rows.push(row);
-  });
-  const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:42},{wch:13},{wch:18},...selectedHosps.flatMap(()=>[{wch:14},{wch:13}])];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'비급여비교');
-  const mrows=[['병원명','수집일','항목수']];
-  selectedHosps.forEach(h=>{const info=metadata[h];if(info)mrows.push([h,info.updated,info.count]);});
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mrows),'수집정보');
-  XLSX.writeFile(wb,`비급여비교_${new Date().toISOString().slice(0,10)}.xlsx`);
-}
-
-/* ══════════════════════════════════════════════
-   유틸
-══════════════════════════════════════════════ */
-function resetResult() {
-  Object.values(activeCharts).forEach(c=>c.destroy()); activeCharts={};
-  expandedItem=null;
-  getResultArea().innerHTML=`<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">검색창에서 항목을 선택해주세요.</div></div>`;
-  const eb=document.getElementById('excelBtn'); if(eb) eb.disabled=true;
-}
-function buildColorMap(sorted){
-  const map=new Map(),u=[...new Set(sorted)];
-  u.forEach((p,i)=>{const r=u.length===1?.5:i/(u.length-1);map.set(p,`hsl(${(120*(1-r)).toFixed(0)},50%,83%)`);});
-  return map;
-}
-const escH  = s=>(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const escJs = s=>(s+'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-const truncate=(s,n)=>s.length>n?s.slice(0,n)+'…':s;
-
-/* ══════════════════════════════════════════════
-   관리자 패널
-══════════════════════════════════════════════ */
-let adminUnlocked = false;
-
-function openDrawer() {
-  document.getElementById('sidebarEl')?.classList.add('drawer-open');
-  document.getElementById('drawerOverlay')?.classList.add('show');
-  document.body.style.overflow = 'hidden';
-}
-function closeDrawer() {
-  document.getElementById('sidebarEl')?.classList.remove('drawer-open');
-  document.getElementById('drawerOverlay')?.classList.remove('show');
-  document.body.style.overflow = '';
-}
-
-function openAdminPanel() {
-  document.getElementById('adminOverlay').style.display = 'flex';
-  if (!adminUnlocked) {
-    setTimeout(()=>{ const el=document.getElementById('adminPwInput'); if(el) el.focus(); }, 100);
-  }
-}
-function closeAdminPanel() {
-  document.getElementById('adminOverlay').style.display = 'none';
-}
-
-function getAdminPw() {
-  // localStorage에 저장된 비밀번호 우선, 없으면 기본값
-  return localStorage.getItem('admin_pw') || ADMIN_PW;
-}
-
-function checkAdminPw() {
-  const val = document.getElementById('adminPwInput').value;
-  if (val === getAdminPw()) {
-    adminUnlocked = true;
-    document.querySelectorAll('.admin-lock-btn').forEach(b => {
-      b.classList.add('unlocked');
-      b.textContent = '🔓';
-    });
-    renderAdminPanel();
-  } else {
-    const err = document.getElementById('adminPwErr');
-    if (err) err.textContent = '비밀번호가 틀렸습니다.';
-    const inp = document.getElementById('adminPwInput');
-    if (inp) { inp.value = ''; inp.focus(); }
-  }
-}
-
-function renderAdminPanel() {
-  const isConfigured = GITHUB_OWNER !== '여기에_깃허브_계정명';
-  const token = localStorage.getItem('gh_token') || '';
-
-  document.getElementById('adminTitle').textContent = '🔓 관리자 패널 — 데이터 업데이트';
-
-  const sorted = [
-    ...Object.keys(metadata).filter(n=>n===MY_HOSP),
-    ...Object.keys(metadata).filter(n=>n!==MY_HOSP)
-  ];
-
-  const hospRows = sorted.map(name => {
-    const info = metadata[name]||{};
-    const isMy = name === MY_HOSP;
-    return `<div class="admin-hosp-row">
-      <span class="admin-hosp-name ${isMy?'my':''}">${name}${isMy?' ★':''}</span>
-      <span class="admin-hosp-meta">
-        ${info.count?info.count.toLocaleString()+'건':'미수집'}<br>
-        ${info.updated||'—'}
-      </span>
-      <button class="admin-run-btn" onclick="triggerUpdate('${escJs(name)}')" ${!token?'disabled':''}>
-        업데이트
-      </button>
-    </div>`;
-  }).join('');
-
-  document.getElementById('adminBody').innerHTML = `
-    ${!isConfigured ? `<div class="admin-notice">
-      ⚠ <b>로컬 환경</b>에서는 GitHub 연동이 필요하지 않습니다.<br>
-      GitHub 배포 후 <b>index.html 상단의 GITHUB_OWNER, GITHUB_REPO</b>를 본인 계정으로 수정하면 웹에서 업데이트 가능합니다.
-    </div>` : ''}
-
-    <div class="admin-section-title">GitHub Personal Access Token</div>
-    <div class="admin-token-row">
-      <input class="admin-token-input" id="adminTokenInput" type="password"
-             placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-             value="${token}">
-      <button class="admin-token-save" onclick="saveToken()">저장</button>
-    </div>
-    <div class="admin-token-hint">
-      토큰이 없다면: <a href="https://github.com/settings/tokens/new?scopes=repo,workflow" target="_blank">GitHub → Settings → Tokens (classic)</a><br>
-      권한 체크: <b>repo</b> ✅ &nbsp; <b>workflow</b> ✅ &nbsp; → Generate token → 복사 후 위에 붙여넣기<br>
-      💾 입력한 토큰은 이 브라우저에 영구 저장됩니다. PC마다 최초 1회만 입력하면 됩니다.
-    </div>
-
-    <div class="admin-section-title">병원별 업데이트</div>
-    <div class="admin-hosp-grid">${hospRows}</div>
-    <button class="admin-run-all" onclick="triggerUpdate('')" ${!token?'disabled':''}>
-      🔄 전체 병원 업데이트 (${sorted.length}개)
-    </button>
-    <div class="admin-status-log" id="adminLog">업데이트 버튼을 클릭하면 GitHub Actions가 실행됩니다.</div>
-
-    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-      <div class="admin-section-title">관리자 비밀번호 변경</div>
-      <div class="admin-token-row">
-        <input class="admin-token-input" id="newPwInput" type="password"
-               placeholder="새 비밀번호 입력" style="letter-spacing:2px;">
-        <input class="admin-token-input" id="newPwConfirm" type="password"
-               placeholder="새 비밀번호 확인" style="letter-spacing:2px;">
-        <button class="admin-token-save" onclick="changeAdminPw()">변경</button>
-      </div>
-      <div class="admin-token-hint" style="color:#94A3B8;">
-        변경한 비밀번호는 이 브라우저에 저장됩니다. 분실 시 기본값(<b>${ADMIN_PW}</b>)으로 초기화됩니다.
-        <span style="cursor:pointer;color:var(--blue);" onclick="resetAdminPw()">초기화</span>
-      </div>
-    </div>
-  `;
-}
-
-function saveToken() {
-  const val = document.getElementById('adminTokenInput')?.value?.trim();
-  if (!val) { addLog('❌ 토큰을 입력해주세요.', 'err'); return; }
-  localStorage.setItem('gh_token', val);
-  addLog('✅ 토큰이 저장되었습니다.', 'ok');
-  renderAdminPanel();
-}
-
-async function triggerUpdate(hospital) {
-  const token = localStorage.getItem('gh_token');
-  if (!token) { addLog('❌ GitHub 토큰을 먼저 입력하고 저장해주세요.', 'err'); return; }
-  if (GITHUB_OWNER === '여기에_깃허브_계정명') {
-    addLog('❌ index.html 상단의 GITHUB_OWNER, GITHUB_REPO를 먼저 설정해주세요.', 'err'); return;
-  }
-
-  const label = hospital || `전체 병원 (${Object.keys(metadata).length}개)`;
-  addLog(`⏳ ${label} 업데이트 요청 중...`, 'run');
-
-  try {
-    const res = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/update.yml/dispatches`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/vnd.github+json'
-        },
-        body: JSON.stringify({ ref: 'main', inputs: { hospital } })
-      }
-    );
-
-    if (res.status === 204) {
-      addLog(`✅ ${label} 업데이트 요청 성공!`, 'ok');
-      addLog(`⏱ 잠시 후 진행 상황을 자동으로 확인합니다...`, 'run');
-      // 5초 후부터 상태 폴링 시작
-      setTimeout(() => pollRunStatus(label), 5000);
-    } else if (res.status === 401) {
-      addLog('❌ 토큰 인증 실패. 토큰을 다시 확인해주세요.', 'err');
-    } else if (res.status === 422) {
-      addLog('❌ 워크플로 파일이 없거나 브랜치 이름이 다릅니다.', 'err');
-    } else {
-      addLog(`❌ 오류 발생 (HTTP ${res.status})`, 'err');
-    }
-  } catch (e) {
-    addLog(`❌ 네트워크 오류: ${e.message}`, 'err');
-  }
-}
-
-// 실행 상태 폴링 (15초마다 최대 40회 = 최대 10분)
-let pollCount = 0;
-async function pollRunStatus(label) {
-  const token = localStorage.getItem('gh_token');
-  if (!token) return;
-
-  try {
-    const res = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/runs?per_page=1`,
-      { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' } }
-    );
-    const data = await res.json();
-    const run  = data.workflow_runs?.[0];
-    if (!run) return;
-
-    const statusMap = {
-      queued     : '⏳ 대기 중...',
-      in_progress: '🔄 수집 중...',
-      completed  : null
-    };
-    const conclusionMap = {
-      success : '✅ 완료!',
-      failure : '❌ 실패',
-      cancelled: '⚠️ 취소됨'
+    const API_KEY = "0412d9d9b5df0a9504c7e3712efa9c123d1639149c78fac71fd43121f7227b23";
+    const CHUNK_SIZE = 500; // ★ 요청 건수를 500건으로 축소 (서버 과부하 방지)
+    
+    // ★ [대리님 공로] 정식 명칭 매핑 테이블
+    const hospSearchMap = {
+        "서울아산병원": "재단법인아산사회복지재단 서울아산병원",
+        "가톨릭대학교서울성모병원": "학교법인가톨릭학원가톨릭대학교서울성모병원",
+        "고려대학교의과대학부속병원(안암)": "학교법인 고려중앙학원 고려대학교의과대학부속병원(안암병원)",
+        "가천대학교길병원": "의료법인 길의료재단 길병원"
     };
 
-    if (run.status === 'completed') {
-      const msg = conclusionMap[run.conclusion] || `완료 (${run.conclusion})`;
-      addLog(`${msg} ${label} — ${new Date(run.updated_at).toLocaleTimeString('ko-KR')}`, run.conclusion==='success'?'ok':'err');
-      if (run.conclusion === 'success') {
-        addLog(`🔗 <a href="${run.html_url}" target="_blank" style="color:var(--blue)">Actions 상세 보기</a>`, '');
-        addLog(`💡 페이지를 새로고침하면 업데이트된 데이터를 볼 수 있습니다.`, 'run');
-      }
-      pollCount = 0;
-    } else {
-      pollCount++;
-      const elapsed = (pollCount * 15);
-      addLog(`${statusMap[run.status]||run.status} (${elapsed}초 경과)`, 'run');
-      if (pollCount < 40) setTimeout(() => pollRunStatus(label), 15000);
-      else addLog('⚠️ 시간 초과. GitHub Actions 탭에서 직접 확인해주세요.', 'err');
+    const hospList = [
+        "가천대학교길병원", "가톨릭대학교서울성모병원", "가톨릭대학교인천성모병원", "강북삼성병원", "건국대학교병원", "건양대학교병원", "경북대학교병원", "경상국립대학교병원", "계명대학교동산병원", "고려대학교의과대학부속구로병원", "고려대학교의과대학부속병원(안암)", "고려대학교의과대학부속안산병원", "고신대학교복음병원", "단국대학교의과대학부속병원", "대구가톨릭대학교병원", "동아대학교병원", "부산대학교병원", "분당서울대학교병원", "삼성서울병원", "서울대학교병원", "서울아산병원", "성균관대학교삼성창원병원", "순천향대학교부속부천병원", "순천향대학교부속천안병원", "아주대학교병원", "양산부산대학교병원", "연세대학교의과대학강남세브란스병원", "연세대학교원주세브란스기독병원", "연세대학교의과대학세브란스병원", "영남대학교병원", "원광대학교병원", "울산대학교병원", "이화여자대학교의과대학부속목동병원", "인제대학교부산백병원", "인제대학교해운대백병원", "인하대학교의과대학부속병원", "전남대학교병원", "전북대학교병원", "조선대학교병원", "중앙대학교병원", "충남대학교병원", "충북대학교병원", "칠곡경북대학교병원", "한림대학교성심병원", "한양대학교병원", "화순전남대학교병원", "강릉아산병원"
+    ].sort();
+
+    let apiData = [];
+    let currentViewData = [];
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const select = document.getElementById('hospitalSelect');
+        let optionsHtml = `<option value="한림대학교성심병원" selected>한림대학교성심병원 (기본)</option>`;
+        hospList.forEach(name => { if(name !== "한림대학교성심병원") optionsHtml += `<option value="${name}">${name}</option>`; });
+        select.innerHTML = optionsHtml;
+        checkCacheInfo();
+    });
+
+    function checkCacheInfo() {
+        const hospName = document.getElementById('hospitalSelect').value;
+        const infoEl = document.getElementById('updateInfo');
+        const savedData = localStorage.getItem(`cache_${hospName}`);
+        const savedDate = localStorage.getItem(`date_${hospName}`);
+
+        if (savedData && savedDate) {
+            infoEl.innerText = `✅ 최근 저장: ${savedDate}`;
+            apiData = JSON.parse(savedData);
+            buildVirtualTree();
+            renderTable(apiData);
+        } else {
+            infoEl.innerText = "저장된 데이터 없음";
+            apiData = [];
+            document.getElementById('resultBody').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:60px;">로드 버튼을 눌러주세요.</td></tr>';
+        }
     }
-  } catch(e) {
-    addLog(`상태 확인 실패: ${e.message}`, 'err');
-  }
-}
 
-function changeAdminPw() {
-  const n1 = document.getElementById('newPwInput')?.value?.trim();
-  const n2 = document.getElementById('newPwConfirm')?.value?.trim();
-  if (!n1)           { addLog('❌ 새 비밀번호를 입력해주세요.', 'err'); return; }
-  if (n1.length < 4) { addLog('❌ 비밀번호는 4자 이상이어야 합니다.', 'err'); return; }
-  if (n1 !== n2)     { addLog('❌ 비밀번호가 일치하지 않습니다.', 'err'); return; }
-  localStorage.setItem('admin_pw', n1);
-  addLog(`✅ 비밀번호가 변경되었습니다.`, 'ok');
-  document.getElementById('newPwInput').value  = '';
-  document.getElementById('newPwConfirm').value = '';
-}
+    // ★ 25초 타임아웃이 적용된 Fetch 함수
+    async function fetchWithTimeout(resource, options = {}) {
+        const { timeout = 25000 } = options;
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        const response = await fetch(resource, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return response;
+    }
 
-function resetAdminPw() {
-  if (!confirm(`비밀번호를 기본값(${ADMIN_PW})으로 초기화하시겠습니까?`)) return;
-  localStorage.removeItem('admin_pw');
-  addLog(`✅ 비밀번호가 기본값으로 초기화되었습니다.`, 'ok');
-}
+    async function fetchApiData() {
+        const hospDisplayName = document.getElementById('hospitalSelect').value;
+        const statusEl = document.getElementById('apiStatus');
+        const searchKeyword = hospSearchMap[hospDisplayName] || hospDisplayName;
+        
+        statusEl.innerText = "⏳ 수집 시작...";
+        let tempApiData = []; let pageNo = 1; let hasMoreData = true;
 
-function addLog(msg, type='') {
-  const log = document.getElementById('adminLog');
-  if (!log) return;
-  const cls = type==='ok'?'log-ok':type==='err'?'log-err':type==='run'?'log-run':'';
-  const time = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  log.innerHTML += `<div class="${cls}">[${time}] ${msg}</div>`;
-  log.scrollTop = log.scrollHeight;
-}
+        try {
+            while(hasMoreData) {
+                const targetUrl = `https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemHospDtlList?ServiceKey=${API_KEY}&pageNo=${pageNo}&numOfRows=${CHUNK_SIZE}&yadmNm=${encodeURIComponent(searchKeyword)}`;
+                let response;
+
+                try {
+                    response = await fetchWithTimeout(targetUrl);
+                } catch(e) {
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+                    response = await fetchWithTimeout(proxyUrl);
+                }
+
+                const xmlText = await response.text();
+                const items = new DOMParser().parseFromString(xmlText, "text/xml").getElementsByTagName("item");
+
+                if(items.length > 0) {
+                    Array.from(items).forEach(node => {
+                        const getT = (t) => node.getElementsByTagName(t)[0]?.textContent || '';
+                        let d = getT("adtFrDd") || '-';
+                        tempApiData.push({
+                            code: getT("npayCd") || getT("cd") || '-',
+                            name: (getT("npayKorNm") || getT("npayNm") || '명칭 없음').trim(),
+                            price: getT("curAmt") || '0',
+                            date: d.length === 8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : d
+                        });
+                    });
+                    statusEl.innerText = `⏳ 수집 중 (${tempApiData.length}건 완료)`;
+                    
+                    if(items.length < CHUNK_SIZE) hasMoreData = false;
+                    else {
+                        pageNo++;
+                        // ★ 서버 부하 방지를 위한 1초 강제 대기 (1초 지연 로직)
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                } else { hasMoreData = false; }
+            }
+
+            if(tempApiData.length > 0) {
+                apiData = tempApiData;
+                const now = new Date();
+                const nowStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                localStorage.setItem(`cache_${hospDisplayName}`, JSON.stringify(apiData));
+                localStorage.setItem(`date_${hospDisplayName}`, nowStr);
+                statusEl.innerText = `✅ 수집 완료 (${apiData.length}건)`;
+                checkCacheInfo();
+            } else { statusEl.innerText = "❌ 결과 0건 (명칭 확인 필요)"; }
+        } catch (error) {
+            statusEl.innerText = "❌ 통신 오류 (타임아웃 또는 방화벽)";
+        }
+    }
+
+    function buildVirtualTree() {
+        const tree = document.getElementById('treeContent'); tree.innerHTML = '';
+        const categories = { "초음파": [], "MRI": [], "로봇수술": [], "도수/충격파": [], "제증명": [], "기타": [] };
+        apiData.forEach(d => {
+            const n = d.name;
+            if(n.includes('초음파')) categories["초음파"].push(d);
+            else if(n.includes('MRI') || n.includes('자기공명')) categories["MRI"].push(d);
+            else if(n.includes('로봇')) categories["로봇수술"].push(d);
+            else if(n.includes('도수') || n.includes('체외충격')) categories["도수/충격파"].push(d);
+            else if(n.includes('증명') || n.includes('진단서')) categories["제증명"].push(d);
+            else categories["기타"].push(d);
+        });
+        for(let key in categories) {
+            if(categories[key].length === 0) continue;
+            const div = document.createElement('div'); div.className = 'category-item';
+            div.innerHTML = `📁 ${key} (${categories[key].length})`;
+            div.onclick = () => renderTable(categories[key]);
+            tree.appendChild(div);
+        }
+    }
+
+    function renderTable(data) {
+        currentViewData = data;
+        const tbody = document.getElementById('resultBody'); tbody.innerHTML = '';
+        data.forEach(d => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${d.code}</td><td style="text-align:left; font-weight:bold; color:#004b87;">${d.name}</td><td class="price">${Number(d.price).toLocaleString()}원</td><td class="date-col">${d.date}</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function searchData() {
+        const kw = document.getElementById('searchInput').value.toLowerCase().trim();
+        renderTable(apiData.filter(d => `${d.code} ${d.name}`.toLowerCase().includes(kw)));
+    }
+
+    function exportToExcel() {
+        if (!currentViewData.length) return;
+        const ws = XLSX.utils.json_to_sheet(currentViewData.map(d => ({ "코드": d.code, "항목명": d.name, "단가": Number(d.price), "등록일": d.date })));
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "비급여");
+        XLSX.writeFile(wb, `비급여_${document.getElementById('hospitalSelect').value}.xlsx`);
+    }
+    document.getElementById('searchInput').onkeypress = e => { if(e.key==='Enter') searchData(); };
 </script>
-<!-- ══ 관리자 패널 모달 ══════════════════════ -->
-<div id="adminOverlay" class="admin-overlay" style="display:none;" onclick="if(event.target===this)closeAdminPanel()">
-  <div class="admin-modal" onclick="event.stopPropagation()">
-    <div class="admin-modal-head">
-      <h2 id="adminTitle">🔒 관리자 패널</h2>
-      <button class="admin-close" onclick="closeAdminPanel()">×</button>
-    </div>
-    <div class="admin-modal-body" id="adminBody">
-      <!-- 비밀번호 입력 화면 -->
-      <div class="admin-pw-wrap">
-        <p>관리자 비밀번호를 입력하세요.</p>
-        <input class="admin-pw-input" id="adminPwInput" type="password"
-               placeholder="••••••••"
-               onkeydown="if(event.key==='Enter')checkAdminPw()">
-        <button class="admin-pw-btn" onclick="checkAdminPw()">확인</button>
-        <div class="admin-pw-err" id="adminPwErr"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
 </body>
 </html>
